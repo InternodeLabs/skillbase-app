@@ -20,11 +20,14 @@ id (uuid, URL id)              id (uuid)
 slug (unique)                  skill_id → skill
 owner_user_id (portal id)      version_number (1,2,3… per skill)
 forked_from_version_id ───┐    name, summary, description, usage
-created_at                │    thumbnail_url (optional)
-                          │    parameters / example_output / scenarios (jsonb)
-                          └──► visibility: public | private
+draft_markdown (wip edits)│    thumbnail_url (optional)
+draft_updated_at          │    parameters / example_output / scenarios (jsonb)
+created_at                └──► visibility: public | private
                                author_user_id
                                created_at
+
+Drafts live on `skill` and are mutated by autosave. Publishing appends a new
+`skill_version` and clears the draft.
 ```
 
 ### Example lineage

@@ -30,6 +30,9 @@ const UUID_RE =
 const skillFields = {
   id: skills.id,
   slug: skills.slug,
+  ownerUserId: skills.ownerUserId,
+  draftMarkdown: skills.draftMarkdown,
+  draftUpdatedAt: skills.draftUpdatedAt,
   name: skillVersions.name,
   summary: skillVersions.summary,
   description: skillVersions.description,
@@ -38,11 +41,15 @@ const skillFields = {
   parameters: skillVersions.parameters,
   exampleOutput: skillVersions.exampleOutput,
   scenarios: skillVersions.scenarios,
+  visibility: skillVersions.visibility,
 };
 
 type SkillFieldsRow = {
   id: string;
   slug: string;
+  ownerUserId: string;
+  draftMarkdown: string | null;
+  draftUpdatedAt: Date | null;
   name: string;
   summary: string;
   description: string;
@@ -51,9 +58,11 @@ type SkillFieldsRow = {
   parameters: Skill["parameters"];
   exampleOutput: Skill["exampleOutput"];
   scenarios: Skill["scenarios"];
+  visibility: "public" | "private";
 };
 
-function toSkill(row: SkillFieldsRow): Skill {
+function toSkill(row: SkillFieldsRow, viewerUserId?: string | null): Skill {
+  const isOwner = Boolean(viewerUserId && row.ownerUserId === viewerUserId);
   return {
     id: row.id,
     name: row.name,
@@ -64,6 +73,9 @@ function toSkill(row: SkillFieldsRow): Skill {
     parameters: row.parameters,
     exampleOutput: row.exampleOutput,
     scenarios: row.scenarios,
+    ownerUserId: row.ownerUserId,
+    draftMarkdown: isOwner ? row.draftMarkdown : null,
+    draftUpdatedAt: isOwner ? row.draftUpdatedAt : null,
   };
 }
 
@@ -90,7 +102,7 @@ export async function getSkills(viewerUserId?: string | null): Promise<Skill[]> 
     .where(visibleToViewer(viewerUserId))
     .orderBy(skillVersions.skillId, desc(skillVersions.versionNumber));
 
-  return rows.map(toSkill);
+  return rows.map((row) => toSkill(row, viewerUserId));
 }
 
 /**
@@ -113,7 +125,7 @@ export async function getSkill(
     .orderBy(skillVersions.skillId, desc(skillVersions.versionNumber))
     .limit(1);
 
-  return rows[0] ? toSkill(rows[0]) : undefined;
+  return rows[0] ? toSkill(rows[0], viewerUserId) : undefined;
 }
 
 /**
@@ -216,5 +228,151 @@ export async function createSkillFromMarkdown(input: {
     parameters: [],
     exampleOutput: { title: "", items: [] },
     scenarios: [],
+    ownerUserId: input.ownerUserId,
+  };
+}
+
+/**
+ * Autosave in-progress edits onto the skill lineage. Does not create a version.
+ * Owner only.
+ */
+export async function saveSkillDraft(input: {
+  skillId: string;
+  markdown: string;
+  ownerUserId: string;
+}): Promise<{ draftUpdatedAt: Date }> {
+  const byId = UUID_RE.test(input.skillId)
+    ? eq(skills.id, input.skillId)
+    : eq(skills.slug, input.skillId);
+
+  const [lineage] = await db
+    .select({ id: skills.id, ownerUserId: skills.ownerUserId })
+    .from(skills)
+    .where(byId)
+    .limit(1);
+
+  if (!lineage) throw new Error("Skill not found.");
+  if (lineage.ownerUserId !== input.ownerUserId) {
+    throw new Error("Only the skill owner can save a draft.");
+  }
+
+  const draftUpdatedAt = new Date();
+  await db
+    .update(skills)
+    .set({
+      draftMarkdown: input.markdown,
+      draftUpdatedAt,
+    })
+    .where(eq(skills.id, lineage.id));
+
+  return { draftUpdatedAt };
+}
+
+/**
+ * Drop an unpublished draft. Owner only.
+ */
+export async function discardSkillDraft(input: {
+  skillId: string;
+  ownerUserId: string;
+}): Promise<void> {
+  const byId = UUID_RE.test(input.skillId)
+    ? eq(skills.id, input.skillId)
+    : eq(skills.slug, input.skillId);
+
+  const [lineage] = await db
+    .select({ id: skills.id, ownerUserId: skills.ownerUserId })
+    .from(skills)
+    .where(byId)
+    .limit(1);
+
+  if (!lineage) throw new Error("Skill not found.");
+  if (lineage.ownerUserId !== input.ownerUserId) {
+    throw new Error("Only the skill owner can discard a draft.");
+  }
+
+  await db
+    .update(skills)
+    .set({ draftMarkdown: null, draftUpdatedAt: null })
+    .where(eq(skills.id, lineage.id));
+}
+
+/**
+ * Append a new version from edited Markdown. Only the skill owner may publish.
+ * Clears any draft after publishing.
+ */
+export async function createSkillVersion(input: {
+  skillId: string;
+  markdown: string;
+  authorUserId: string;
+}): Promise<Skill> {
+  const markdown = input.markdown.trim();
+  if (!markdown) throw new Error("Markdown content is required.");
+
+  const byId = UUID_RE.test(input.skillId)
+    ? eq(skills.id, input.skillId)
+    : eq(skills.slug, input.skillId);
+
+  const [lineage] = await db
+    .select({ id: skills.id, ownerUserId: skills.ownerUserId })
+    .from(skills)
+    .where(byId)
+    .limit(1);
+
+  if (!lineage) throw new Error("Skill not found.");
+  if (lineage.ownerUserId !== input.authorUserId) {
+    throw new Error("Only the skill owner can save a new version.");
+  }
+
+  const [latest] = await db
+    .select({
+      versionNumber: skillVersions.versionNumber,
+      name: skillVersions.name,
+      thumbnailUrl: skillVersions.thumbnailUrl,
+      scenarios: skillVersions.scenarios,
+      visibility: skillVersions.visibility,
+    })
+    .from(skillVersions)
+    .where(eq(skillVersions.skillId, lineage.id))
+    .orderBy(desc(skillVersions.versionNumber))
+    .limit(1);
+
+  if (!latest) throw new Error("Skill has no versions to edit.");
+
+  const nextVersion = latest.versionNumber + 1;
+  const summary = summaryFromMarkdown(markdown);
+
+  await db.insert(skillVersions).values({
+    skillId: lineage.id,
+    versionNumber: nextVersion,
+    name: latest.name,
+    summary,
+    description: markdown,
+    usage: "",
+    thumbnailUrl: latest.thumbnailUrl,
+    parameters: [],
+    exampleOutput: { title: "", items: [] },
+    scenarios: latest.scenarios,
+    visibility: latest.visibility,
+    authorUserId: input.authorUserId,
+  });
+
+  await db
+    .update(skills)
+    .set({ draftMarkdown: null, draftUpdatedAt: null })
+    .where(eq(skills.id, lineage.id));
+
+  return {
+    id: lineage.id,
+    name: latest.name,
+    summary,
+    description: markdown,
+    usage: "",
+    thumbnailUrl: latest.thumbnailUrl,
+    parameters: [],
+    exampleOutput: { title: "", items: [] },
+    scenarios: latest.scenarios,
+    ownerUserId: lineage.ownerUserId,
+    draftMarkdown: null,
+    draftUpdatedAt: null,
   };
 }

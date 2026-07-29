@@ -24,6 +24,11 @@ export interface Skill {
   parameters: SkillParameter[];
   exampleOutput: SkillOutputSection;
   scenarios: SkillScenario[];
+  /** Present on detail fetches used for edit gating. */
+  ownerUserId?: string;
+  /** Owner-only unpublished edits. Null when none. */
+  draftMarkdown?: string | null;
+  draftUpdatedAt?: Date | null;
 }
 
 /** One append-only snapshot in a skill's version timeline. */

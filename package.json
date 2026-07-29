@@ -15,6 +15,7 @@
     "db:seed": "dotenv -e .env.local -- tsx src/lib/db/seed.ts"
   },
   "dependencies": {
+    "@mdxeditor/editor": "^4.1.0",
     "@neondatabase/serverless": "^1.1.0",
     "@radix-ui/react-dialog": "^1.1.23",
     "date-fns": "^4.4.0",

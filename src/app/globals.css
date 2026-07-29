@@ -175,3 +175,17 @@ body {
   font-size: 0.9em;
   padding: 0.05em 0.2em;
 }
+
+.skill-mdx-editor .mdxeditor {
+  --accentColor: var(--accent);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+.skill-mdx-editor .mdxeditor-toolbar {
+  display: none;
+}
+
+.skill-mdx-editor .mdxeditor-root-contenteditable {
+  padding: 0;
+  min-height: 12rem;
+}

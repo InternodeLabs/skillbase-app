@@ -28,6 +28,9 @@ export const skills = pgTable("skill", {
   forkedFromVersionId: uuid("forked_from_version_id").references(
     (): AnyPgColumn => skillVersions.id,
   ),
+  // In-progress edits. Mutated by autosave; publishing clears it and appends a version.
+  draftMarkdown: text("draft_markdown"),
+  draftUpdatedAt: timestamp("draft_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

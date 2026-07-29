@@ -15,6 +15,13 @@
       "when": 1785292280157,
       "tag": "0001_spooky_cammi",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785294353185,
+      "tag": "0002_late_raza",
+      "breakpoints": true
     }
   ]
 }
