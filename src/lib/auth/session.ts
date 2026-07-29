@@ -24,10 +24,10 @@ function toBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function fromBase64Url(value: string): Uint8Array {
+function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length));
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
@@ -40,14 +40,6 @@ async function importKey(): Promise<CryptoKey> {
     false,
     ["sign", "verify"],
   );
-}
-
-/** Constant-time-ish comparison for signatures. */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return result === 0;
 }
 
 /** Serialize + HMAC-sign a session into a cookie value: `<payload>.<sig>`. */
@@ -82,17 +74,6 @@ export async function verifySession(
       new TextEncoder().encode(payload),
     );
     if (!valid) return null;
-
-    const expected = toBase64Url(
-      new Uint8Array(
-        await crypto.subtle.sign(
-          "HMAC",
-          key,
-          new TextEncoder().encode(payload),
-        ),
-      ),
-    );
-    if (!timingSafeEqual(expected, signature)) return null;
 
     const session = JSON.parse(
       new TextDecoder().decode(fromBase64Url(payload)),
