@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth/server";
+import { loginStartHref } from "@/lib/auth/urls";
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_state: "Your sign-in session expired. Please try again.",
@@ -24,9 +25,7 @@ export default async function LoginPage({
     ? (ERROR_MESSAGES[error] ?? "Sign-in failed. Please try again.")
     : null;
 
-  const loginHref = returnTo
-    ? `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`
-    : "/api/auth/login";
+  const loginHref = loginStartHref(returnTo);
 
   return (
     <main className="flex min-h-dvh items-center justify-center px-4">

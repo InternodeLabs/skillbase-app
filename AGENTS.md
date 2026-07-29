@@ -16,7 +16,9 @@ Deeper rationale: [`docs/architecture.md`](docs/architecture.md). Human how-to: 
 
 - Skillbase is an auth _consumer_ of Internode (`portal-frontend`). Do not add a local identity provider.
 - Browsing (`/`, `/skills/[id]`) is **public**. Auth gates features (e.g. edit), not pages.
-- Sign-in CTAs must go straight to `/api/auth/login?returnTo=…` (Internode PKCE start). Do **not** send users to `/login` as the normal path — that page is for auth _errors_ only.
+- Sign-in CTAs go to `/authenticating?returnTo=…` (brief interstitial), which then
+  continues to `/api/auth/login?returnTo=…` (Internode PKCE start). Do **not** send
+  users to `/login` as the normal path — that page is for auth _errors_ only.
 - Session user id comes from the portal (`session.user.id`). Use that string as `owner_user_id` / `author_user_id`.
 
 ### Data model

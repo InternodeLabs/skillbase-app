@@ -25,3 +25,12 @@ export interface Skill {
   exampleOutput: SkillOutputSection;
   scenarios: SkillScenario[];
 }
+
+/** One append-only snapshot in a skill's version timeline. */
+export interface SkillVersionHistoryItem {
+  id: string;
+  versionNumber: number;
+  createdAt: Date;
+  /** What changed since the prior version. Null until BE writes it. */
+  changeSummary: string | null;
+}

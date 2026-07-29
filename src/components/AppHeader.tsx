@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
 
 import { UploadSkillButton } from "@/components/UploadSkillButton";
+import { loginStartHref } from "@/lib/auth/urls";
 import type { SessionUser } from "@/lib/auth/session";
 
 function initials(user: SessionUser): string {
@@ -12,6 +14,27 @@ function initials(user: SessionUser): string {
     .join("");
 }
 
+function UploadOrSignIn({
+  signedIn,
+  signInHref,
+}: {
+  signedIn: boolean;
+  signInHref: string;
+}) {
+  if (signedIn) return <UploadSkillButton />;
+
+  return (
+    <Link
+      href={signInHref}
+      aria-label="Sign in to upload a skill"
+      title="Sign in to upload"
+      className="grid h-7 w-7 place-items-center rounded-md border border-border text-foreground transition hover:bg-background"
+    >
+      <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+    </Link>
+  );
+}
+
 export function AppHeader({
   user,
   back,
@@ -21,9 +44,9 @@ export function AppHeader({
   back?: { href: string; label: string };
   returnTo?: string;
 }) {
-  const signInHref = returnTo
-    ? `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`
-    : "/api/auth/login";
+  const signInHref = loginStartHref(returnTo ?? "/");
+  const signedIn = Boolean(user);
+
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-surface/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
@@ -46,10 +69,12 @@ export function AppHeader({
                   Skillbase
                 </span>
               </Link>
-              {user ? <UploadSkillButton /> : null}
+              <UploadOrSignIn signedIn={signedIn} signInHref={signInHref} />
             </div>
           )}
-          {back && user ? <UploadSkillButton /> : null}
+          {back ? (
+            <UploadOrSignIn signedIn={signedIn} signInHref={signInHref} />
+          ) : null}
         </div>
 
         <div className="ml-auto flex items-center gap-3">

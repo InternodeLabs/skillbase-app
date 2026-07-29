@@ -4,13 +4,14 @@ import slugify from "slugify";
 import { db } from "@/lib/db/client";
 import { skills, skillVersions } from "@/lib/db/schema";
 
-import type { Skill } from "./types";
+import type { Skill, SkillVersionHistoryItem } from "./types";
 
 export type {
   Skill,
   SkillOutputSection,
   SkillParameter,
   SkillScenario,
+  SkillVersionHistoryItem,
 } from "./types";
 
 /** How many markdown source lines to render in a library tile preview. */
@@ -113,6 +114,37 @@ export async function getSkill(
     .limit(1);
 
   return rows[0] ? toSkill(rows[0]) : undefined;
+}
+
+/**
+ * Visible versions for a skill lineage, oldest → newest (timeline order).
+ * `changeSummary` is always null until that column/API exists.
+ */
+export async function getSkillVersions(
+  idOrSlug: string,
+  viewerUserId?: string | null,
+): Promise<SkillVersionHistoryItem[]> {
+  const byId = UUID_RE.test(idOrSlug)
+    ? eq(skills.id, idOrSlug)
+    : eq(skills.slug, idOrSlug);
+
+  const rows = await db
+    .select({
+      id: skillVersions.id,
+      versionNumber: skillVersions.versionNumber,
+      createdAt: skillVersions.createdAt,
+    })
+    .from(skillVersions)
+    .innerJoin(skills, eq(skills.id, skillVersions.skillId))
+    .where(and(byId, visibleToViewer(viewerUserId)))
+    .orderBy(skillVersions.versionNumber);
+
+  return rows.map((row) => ({
+    id: row.id,
+    versionNumber: row.versionNumber,
+    createdAt: row.createdAt,
+    changeSummary: null,
+  }));
 }
 
 function summaryFromMarkdown(markdown: string): string {

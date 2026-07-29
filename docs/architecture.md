@@ -83,8 +83,9 @@ Skillbase mirrors the Chrome extension’s PKCE flow for the web:
 2. Portal signs the user in, redirects back with `?code=&state=`.
 3. `GET /api/auth/callback` — exchange code for `{ apiToken, expiresAt, user }`,
    store in a signed httpOnly session cookie.
-4. Feature gates (e.g. Edit) link to `/api/auth/login?returnTo=…` — **not** the
-   `/login` interstitial. `/login` remains for callback error display.
+4. Feature gates (e.g. Edit) link to `/authenticating?returnTo=…`, which pauses
+   briefly then continues to `/api/auth/login?returnTo=…`. `/login` remains for
+   callback error display only.
 
 Portal allowlist must include this app’s callback origin (local `3100` and
 `https://app.skillbase.club`).
@@ -95,7 +96,8 @@ Portal allowlist must include this app’s callback origin (local `3100` and
 src/
   app/
     api/auth/{login,callback,logout}/route.ts
-    login/page.tsx                 # error interstitial only for happy-path UX
+    login/page.tsx                 # error page only for happy-path UX
+    authenticating/page.tsx        # brief pause before PKCE login
     page.tsx                       # public skill library
     skills/[id]/page.tsx           # public detail; edit gated
   lib/

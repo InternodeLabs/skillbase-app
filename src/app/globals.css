@@ -47,6 +47,37 @@ body {
   animation: skeleton-pulse 1.6s ease-in-out infinite;
 }
 
+@keyframes authenticating-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.authenticating-bar {
+  width: 100%;
+  animation: authenticating-progress 3s linear forwards;
+}
+
+@keyframes panel-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.panel-overlay[data-state="open"] {
+  animation: panel-fade-in 180ms ease-out;
+}
+
+.panel-slide-right[data-state="open"] {
+  animation: panel-slide-in-right 220ms ease-out;
+}
+
 .markdown-preview :where(h1, h2, h3, h4) {
   font-weight: 600;
   letter-spacing: -0.02em;

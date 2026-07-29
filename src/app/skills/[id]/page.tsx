@@ -4,8 +4,10 @@ import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { ScenarioPreview } from "@/components/ScenarioPreview";
+import { VersionHistoryFloatover } from "@/components/VersionHistoryFloatover";
 import { getSession } from "@/lib/auth/server";
-import { getSkill } from "@/lib/skills/data";
+import { getSkill, getSkillVersions } from "@/lib/skills/data";
+import { loginStartHref } from "@/lib/auth/urls";
 
 export default async function SkillDetailPage({
   params,
@@ -17,8 +19,16 @@ export default async function SkillDetailPage({
   const skill = await getSkill(id, session?.user.id);
   if (!skill) notFound();
 
+  const versions = await getSkillVersions(id, session?.user.id);
+  const versionEntries = versions.map((version) => ({
+    id: version.id,
+    versionNumber: version.versionNumber,
+    createdAt: version.createdAt.toISOString(),
+    changeSummary: version.changeSummary,
+  }));
+
   const returnTo = `/skills/${skill.id}`;
-  const loginHref = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+  const loginHref = loginStartHref(returnTo);
   const hasUsage = Boolean(skill.usage.trim());
   const hasParameters = skill.parameters.length > 0;
   const hasExampleOutput =
@@ -34,10 +44,15 @@ export default async function SkillDetailPage({
       />
 
       <main className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-2">
-        {/* Left column: skill definition */}
         <section className="flex flex-col rounded-xl border border-border bg-surface p-6">
-          <h1 className="text-xl font-semibold tracking-tight">{skill.name}</h1>
-          <MarkdownContent className="markdown-preview mt-3 text-sm leading-relaxed text-foreground">
+          <div className="mb-4 flex items-center justify-end">
+            <VersionHistoryFloatover
+              skillName={skill.name}
+              versions={versionEntries}
+            />
+          </div>
+
+          <MarkdownContent className="markdown-preview text-sm leading-relaxed text-foreground">
             {skill.description}
           </MarkdownContent>
 
@@ -105,16 +120,15 @@ export default async function SkillDetailPage({
               ) : (
                 <Link
                   href={loginHref}
-                  className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted transition hover:bg-background hover:text-foreground"
+                  className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
                 >
-                  Login required
+                  Edit skill
                 </Link>
               )}
             </div>
           </div>
         </section>
 
-        {/* Right column: scenario preview */}
         <section className="min-h-[28rem]">
           <ScenarioPreview scenarios={skill.scenarios} />
         </section>
