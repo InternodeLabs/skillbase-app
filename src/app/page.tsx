@@ -6,7 +6,7 @@ import { getSkills, SKELETON_TILE_COUNT } from "@/lib/skills/data";
 
 export default async function HomePage() {
   const session = await getSession();
-  const skills = getSkills();
+  const skills = await getSkills(session?.user.id);
   const skeletonCount = Math.max(0, SKELETON_TILE_COUNT - skills.length);
 
   return (

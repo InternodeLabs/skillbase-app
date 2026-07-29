@@ -14,10 +14,15 @@ function initials(user: SessionUser): string {
 export function AppHeader({
   user,
   back,
+  returnTo,
 }: {
   user?: SessionUser | null;
   back?: { href: string; label: string };
+  returnTo?: string;
 }) {
+  const signInHref = returnTo
+    ? `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`
+    : "/api/auth/login";
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-surface/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
@@ -70,7 +75,7 @@ export function AppHeader({
             </div>
           ) : (
             <Link
-              href="/login"
+              href={signInHref}
               className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition hover:opacity-90"
             >
               Sign in

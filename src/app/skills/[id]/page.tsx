@@ -13,17 +13,18 @@ export default async function SkillDetailPage({
 }) {
   const session = await getSession();
   const { id } = await params;
-  const skill = getSkill(id);
+  const skill = await getSkill(id, session?.user.id);
   if (!skill) notFound();
 
   const returnTo = `/skills/${id}`;
-  const loginHref = `/login?returnTo=${encodeURIComponent(returnTo)}`;
+  const loginHref = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
 
   return (
     <>
       <AppHeader
         user={session?.user}
         back={{ href: "/", label: "Skill Library" }}
+        returnTo={returnTo}
       />
 
       <main className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-2">

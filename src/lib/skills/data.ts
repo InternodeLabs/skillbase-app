@@ -1,75 +1,96 @@
-/**
- * Placeholder skill data. This is intentionally static seed content so the
- * Skill Library grid and detail pages are demonstrable before we wire up a real
- * data source. Replace `getSkills` / `getSkill` with real fetches later.
- */
+import { and, desc, eq, or } from "drizzle-orm";
 
-export interface SkillParameter {
-  name: string;
-  description: string;
-}
+import { db } from "@/lib/db/client";
+import { skills, skillVersions } from "@/lib/db/schema";
 
-export interface SkillOutputSection {
-  title: string;
-  items: string[];
-}
+import type { Skill } from "./types";
 
-export interface SkillScenario {
-  id: string;
-  label: string;
-}
+export type {
+  Skill,
+  SkillOutputSection,
+  SkillParameter,
+  SkillScenario,
+} from "./types";
 
-export interface Skill {
-  id: string;
+/** Number of skeleton tiles to show while there is little/no real data yet. */
+export const SKELETON_TILE_COUNT = 12;
+
+const skillFields = {
+  slug: skills.slug,
+  name: skillVersions.name,
+  summary: skillVersions.summary,
+  description: skillVersions.description,
+  usage: skillVersions.usage,
+  parameters: skillVersions.parameters,
+  exampleOutput: skillVersions.exampleOutput,
+  scenarios: skillVersions.scenarios,
+};
+
+type SkillFieldsRow = {
+  slug: string;
   name: string;
   summary: string;
   description: string;
   usage: string;
-  parameters: SkillParameter[];
-  exampleOutput: SkillOutputSection;
-  scenarios: SkillScenario[];
+  parameters: Skill["parameters"];
+  exampleOutput: Skill["exampleOutput"];
+  scenarios: Skill["scenarios"];
+};
+
+function toSkill(row: SkillFieldsRow): Skill {
+  return {
+    id: row.slug,
+    name: row.name,
+    summary: row.summary,
+    description: row.description,
+    usage: row.usage,
+    parameters: row.parameters,
+    exampleOutput: row.exampleOutput,
+    scenarios: row.scenarios,
+  };
 }
 
-const SKILLS: Skill[] = [
-  {
-    id: "summarize-customer-feedback",
-    name: "Summarize Customer Feedback",
-    summary:
-      "Aggregate and summarize large volumes of customer feedback into structured insights.",
-    description:
-      "A prompt skill that aggregates and summarizes large volumes of customer feedback into structured insights. Useful for support teams, product managers, and researchers.",
-    usage: `/summarize-feedback
-  --source  "raw_feedback.csv"
-  --output  "summary.md"
-  --tone    neutral`,
-    parameters: [
-      { name: "source", description: "path to input file (CSV or plain text)" },
-      { name: "output", description: "destination file for the summary" },
-      { name: "tone", description: "neutral · formal · concise" },
-    ],
-    exampleOutput: {
-      title: "Top themes (last 30 days)",
-      items: [
-        "Onboarding friction — 38% of responses",
-        "Missing dark mode — 24% of responses",
-        "Slow export performance — 19% of responses",
-      ],
-    },
-    scenarios: [
-      { id: "landing-page", label: "Landing page" },
-      { id: "support-inbox", label: "Support inbox" },
-      { id: "survey-export", label: "Survey export" },
-    ],
-  },
-];
-
-/** Number of skeleton tiles to show while there is no real data yet. */
-export const SKELETON_TILE_COUNT = 12;
-
-export function getSkills(): Skill[] {
-  return SKILLS;
+/**
+ * A version is visible to a viewer when it is public, or when the viewer owns
+ * the skill (so they can see their own private versions).
+ */
+function visibleToViewer(viewerUserId?: string | null) {
+  const isPublic = eq(skillVersions.visibility, "public");
+  return viewerUserId
+    ? or(isPublic, eq(skills.ownerUserId, viewerUserId))
+    : isPublic;
 }
 
-export function getSkill(id: string): Skill | undefined {
-  return SKILLS.find((skill) => skill.id === id);
+/**
+ * The Skill Library grid: one row per skill lineage, showing the latest version
+ * the viewer is allowed to see. Skills with no visible version are omitted.
+ */
+export async function getSkills(viewerUserId?: string | null): Promise<Skill[]> {
+  const rows = await db
+    .selectDistinctOn([skillVersions.skillId], skillFields)
+    .from(skillVersions)
+    .innerJoin(skills, eq(skills.id, skillVersions.skillId))
+    .where(visibleToViewer(viewerUserId))
+    .orderBy(skillVersions.skillId, desc(skillVersions.versionNumber));
+
+  return rows.map(toSkill);
+}
+
+/**
+ * A single skill by its URL slug, resolved to the latest version the viewer is
+ * allowed to see. Returns undefined if the skill has no visible version.
+ */
+export async function getSkill(
+  slug: string,
+  viewerUserId?: string | null,
+): Promise<Skill | undefined> {
+  const rows = await db
+    .selectDistinctOn([skillVersions.skillId], skillFields)
+    .from(skillVersions)
+    .innerJoin(skills, eq(skills.id, skillVersions.skillId))
+    .where(and(eq(skills.slug, slug), visibleToViewer(viewerUserId)))
+    .orderBy(skillVersions.skillId, desc(skillVersions.versionNumber))
+    .limit(1);
+
+  return rows[0] ? toSkill(rows[0]) : undefined;
 }
