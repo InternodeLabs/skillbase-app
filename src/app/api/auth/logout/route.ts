@@ -4,7 +4,7 @@ import { SESSION_COOKIE } from "@/lib/auth/config";
 
 function clearAndRedirect(request: NextRequest) {
   const response = NextResponse.redirect(
-    new URL("/login", request.nextUrl.origin).toString(),
+    new URL("/", request.nextUrl.origin).toString(),
   );
   response.cookies.delete(SESSION_COOKIE);
   return response;

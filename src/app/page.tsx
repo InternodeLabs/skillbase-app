@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/AppHeader";
 import { getSession } from "@/lib/auth/server";
@@ -7,14 +6,12 @@ import { getSkills, SKELETON_TILE_COUNT } from "@/lib/skills/data";
 
 export default async function HomePage() {
   const session = await getSession();
-  if (!session) redirect("/login");
-
   const skills = getSkills();
   const skeletonCount = Math.max(0, SKELETON_TILE_COUNT - skills.length);
 
   return (
     <>
-      <AppHeader user={session.user} />
+      <AppHeader user={session?.user} />
 
       <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
         <div className="mb-6 flex items-end justify-between gap-4">

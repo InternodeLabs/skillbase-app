@@ -15,7 +15,7 @@ export function AppHeader({
   user,
   back,
 }: {
-  user: SessionUser;
+  user?: SessionUser | null;
   back?: { href: string; label: string };
 }) {
   return (
@@ -51,22 +51,31 @@ export function AppHeader({
             />
           </label>
 
-          <div className="flex items-center gap-2">
-            <span
-              title={user.email}
-              className="grid h-8 w-8 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground"
-            >
-              {initials(user)}
-            </span>
-            <form action="/api/auth/logout" method="post">
-              <button
-                type="submit"
-                className="rounded-md border border-border px-2.5 py-1.5 text-sm font-medium text-foreground transition hover:bg-background"
+          {user ? (
+            <div className="flex items-center gap-2">
+              <span
+                title={user.email}
+                className="grid h-8 w-8 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground"
               >
-                Sign out
-              </button>
-            </form>
-          </div>
+                {initials(user)}
+              </span>
+              <form action="/api/auth/logout" method="post">
+                <button
+                  type="submit"
+                  className="rounded-md border border-border px-2.5 py-1.5 text-sm font-medium text-foreground transition hover:bg-background"
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition hover:opacity-90"
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       </div>
     </header>

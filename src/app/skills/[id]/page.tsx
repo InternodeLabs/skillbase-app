@@ -1,4 +1,5 @@
-import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/components/AppHeader";
 import { ScenarioPreview } from "@/components/ScenarioPreview";
@@ -11,16 +12,17 @@ export default async function SkillDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await getSession();
-  if (!session) redirect("/login");
-
   const { id } = await params;
   const skill = getSkill(id);
   if (!skill) notFound();
 
+  const returnTo = `/skills/${id}`;
+  const loginHref = `/login?returnTo=${encodeURIComponent(returnTo)}`;
+
   return (
     <>
       <AppHeader
-        user={session.user}
+        user={session?.user}
         back={{ href: "/", label: "Skill Library" }}
       />
 
@@ -70,12 +72,21 @@ export default async function SkillDetailPage({
 
           <div className="mt-auto pt-8">
             <div className="flex justify-center">
-              <button
-                type="button"
-                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
-              >
-                Edit skill
-              </button>
+              {session ? (
+                <button
+                  type="button"
+                  className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
+                >
+                  Edit skill
+                </button>
+              ) : (
+                <Link
+                  href={loginHref}
+                  className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted transition hover:bg-background hover:text-foreground"
+                >
+                  Login required
+                </Link>
+              )}
             </div>
           </div>
         </section>

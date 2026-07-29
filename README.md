@@ -20,8 +20,8 @@ cp .env.example .env.local   # then fill in the values
 npm run dev
 ```
 
-Open http://localhost:3000 — you'll be redirected to `/login`, then to the portal
-to authenticate.
+Open http://localhost:3000 — the Skill Library is public. Sign in when you need
+gated features (e.g. editing a skill).
 
 > Note: if you run the portal locally on port 3000, run Skillbase on another port,
 > e.g. `npm run dev -- -p 3100`, and set `PORTAL_BASE_URL=http://localhost:3000`.
@@ -50,9 +50,10 @@ Skillbase mirrors the Chrome extension's PKCE flow, adapted for the web:
    and receives `{ apiToken, expiresAt, user }`.
 4. The `apiToken` + user are stored in a signed, httpOnly session cookie. Use it as
    `Authorization: Bearer <apiToken>` for portal API calls.
-5. `src/proxy.ts` (Next.js route protection) guards every route except `/login`
-   and `/api/auth/*`.
-6. `GET|POST /api/auth/logout` clears the session.
+5. Browsing (`/` and `/skills/[id]`) is public. Auth is feature-gated — e.g. the
+   skill detail **Edit** control shows "Login required" and sends you through
+   `/login` with a `returnTo` when signed out.
+6. `GET|POST /api/auth/logout` clears the session and returns to `/`.
 
 ### Portal-side integration required
 
@@ -89,12 +90,11 @@ src/
   app/
     api/auth/{login,callback,logout}/route.ts  # web PKCE flow
     login/page.tsx                             # sign-in screen
-    page.tsx                                   # Skill Library grid (protected)
-    skills/[id]/page.tsx                       # skill detail (protected)
+    page.tsx                                   # Skill Library grid (public)
+    skills/[id]/page.tsx                       # skill detail (public; edit gated)
   components/                                  # AppHeader, ScenarioPreview
   lib/auth/                                    # config, pkce, session, server helpers
   lib/skills/data.ts                           # placeholder skill data
-  proxy.ts                                     # route protection (auth guard)
 ```
 
 ## Data
