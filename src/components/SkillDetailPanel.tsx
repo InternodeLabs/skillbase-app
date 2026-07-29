@@ -61,6 +61,44 @@ function VisibilityChip({
   );
 }
 
+function ShareMenuSwitch({
+  checked,
+  onCheckedChange,
+  title,
+  description,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <DropdownMenu.CheckboxItem
+      checked={checked}
+      onCheckedChange={onCheckedChange}
+      onSelect={(event) => event.preventDefault()}
+      className="flex cursor-pointer items-center justify-between gap-3 rounded px-3 py-2 outline-none data-highlighted:bg-background"
+    >
+      <span>
+        <span className="block text-sm text-foreground">{title}</span>
+        <span className="mt-0.5 block text-xs text-muted">{description}</span>
+      </span>
+      <span
+        aria-hidden
+        className={`relative h-5 w-9 shrink-0 rounded-md transition ${
+          checked ? "bg-accent" : "bg-skeleton"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 size-4 rounded-sm bg-surface transition ${
+            checked ? "translate-x-4" : "translate-x-0"
+          }`}
+        />
+      </span>
+    </DropdownMenu.CheckboxItem>
+  );
+}
+
 export function SkillDetailPanel({
   skill,
   versions,
@@ -109,9 +147,17 @@ export function SkillDetailPanel({
   const [publishing, setPublishing] = useState(false);
   const [updatingVisibility, setUpdatingVisibility] = useState(false);
   const [forking, setForking] = useState(false);
+  const [shareForAgent, setShareForAgent] = useState(false);
+  const [shareLockedVersion, setShareLockedVersion] = useState(
+    !isLatestVersion,
+  );
   const [draftStatus, setDraftStatus] = useState<DraftStatus>(
     showDraft ? "saved" : "idle",
   );
+
+  useEffect(() => {
+    setShareLockedVersion(!isLatestVersion);
+  }, [isLatestVersion, selectedVersionNumber]);
 
   useEffect(() => {
     setPublishVisibility(currentVisibility);
@@ -346,29 +392,37 @@ export function SkillDetailPanel({
           ? "Draft save failed"
           : null;
 
-  const copyShareLink = useCallback(
-    async (mode: "latest" | "version") => {
-      const path =
-        mode === "latest"
-          ? `/skills/${skill.id}`
-          : `/skills/${skill.id}?v=${selectedVersionNumber}`;
-      const url =
-        typeof window === "undefined"
-          ? path
-          : new URL(path, window.location.origin).toString();
-      try {
-        await navigator.clipboard.writeText(url);
-        toast.success(
-          mode === "latest"
-            ? "Copied link to latest version."
-            : `Copied link to version ${selectedVersionNumber}.0.`,
-        );
-      } catch {
-        toast.error("Could not copy link.");
-      }
-    },
-    [selectedVersionNumber, skill.id],
-  );
+  const copyShareLink = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (shareLockedVersion) params.set("v", String(selectedVersionNumber));
+    if (shareForAgent) params.set("raw", "1");
+    const query = params.toString();
+    const path = query
+      ? `/skills/${skill.id}?${query}`
+      : `/skills/${skill.id}`;
+    const url =
+      typeof window === "undefined"
+        ? path
+        : new URL(path, window.location.origin).toString();
+    try {
+      await navigator.clipboard.writeText(url);
+      const versionLabel = shareLockedVersion
+        ? `version ${selectedVersionNumber}.0`
+        : "latest version";
+      toast.success(
+        shareForAgent
+          ? `Copied agent link (${versionLabel}).`
+          : `Copied link (${versionLabel}).`,
+      );
+    } catch {
+      toast.error("Could not copy link.");
+    }
+  }, [
+    selectedVersionNumber,
+    shareForAgent,
+    shareLockedVersion,
+    skill.id,
+  ]);
 
   return (
     <section className="flex flex-col rounded-xl border border-border bg-surface p-6 pb-1">
@@ -547,32 +601,47 @@ export function SkillDetailPanel({
                   Share
                 </button>
               </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
+              <DropdownMenu.Portal >
                 <DropdownMenu.Content
                   align="center"
                   sideOffset={6}
-                  className="z-50 min-w-52 rounded-md border border-border bg-surface p-1 shadow-md"
+                  className="z-50 w-56 rounded-md border border-border bg-surface p-1 shadow-md"
                 >
+                  <ShareMenuSwitch
+                    checked={shareForAgent}
+                    onCheckedChange={setShareForAgent}
+                    title="For Agent"
+                    description={
+                      shareForAgent
+                        ? "Yes, return markdown"
+                        : "No, opens to website"
+                    }
+                  />
+                  <ShareMenuSwitch
+                    checked={shareLockedVersion}
+                    onCheckedChange={setShareLockedVersion}
+                    title="Pinned"
+                    description={
+                      shareLockedVersion
+                        ? `Yes, always version ${selectedVersionNumber}.0`
+                        : "No, published version"
+                    }
+                  />
+                  <DropdownMenu.Separator className="my-1 h-px bg-border" />
                   <DropdownMenu.Item
-                    onSelect={() => void copyShareLink("latest")}
+                    onSelect={() => void copyShareLink()}
                     className="cursor-pointer rounded px-3 py-2 outline-none data-highlighted:bg-background"
                   >
                     <span className="block text-sm text-foreground">
-                      Always latest
+                      Copy link
                     </span>
                     <span className="mt-0.5 block text-xs text-muted">
-                      Opens the newest version
-                    </span>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    onSelect={() => void copyShareLink("version")}
-                    className="cursor-pointer rounded px-3 py-2 outline-none data-highlighted:bg-background"
-                  >
-                    <span className="block text-sm text-foreground">
-                      This version ({selectedVersionNumber}.0)
-                    </span>
-                    <span className="mt-0.5 block text-xs text-muted">
-                      Stays on version {selectedVersionNumber}.0
+                      {[
+                        shareForAgent ? "Agent markdown" : "Website",
+                        shareLockedVersion
+                          ? `v${selectedVersionNumber}.0`
+                          : "head",
+                      ].join(" · ")}
                     </span>
                   </DropdownMenu.Item>
                 </DropdownMenu.Content>

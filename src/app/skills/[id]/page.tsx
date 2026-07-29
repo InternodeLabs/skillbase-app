@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 
 import { AppHeader } from "@/components/AppHeader";
@@ -5,23 +6,49 @@ import { ScenarioPreview } from "@/components/ScenarioPreview";
 import { SkillDetailPanel } from "@/components/SkillDetailPanel";
 import { getSession } from "@/lib/auth/server";
 import { getSkillVersions, lookupSkillVersion } from "@/lib/skills/data";
+import {
+  parseVersionParam,
+  skillSharePath,
+  versionPath,
+} from "@/lib/skills/params";
+import { matchesPrivateShareCode } from "@/lib/skills/share-access";
 import { loginStartHref } from "@/lib/auth/urls";
-
-function parseVersionParam(value: string | string[] | undefined): number | undefined {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw || !/^\d+$/.test(raw)) return undefined;
-  const n = Number(raw);
-  return n >= 1 ? n : undefined;
-}
 
 function parseFlagParam(value: string | string[] | undefined): boolean {
   const raw = Array.isArray(value) ? value[0] : value;
   return raw === "1" || raw === "true";
 }
 
-function versionPath(skillId: string, versionNumber: number, latestVersionNumber: number) {
-  if (versionNumber === latestVersionNumber) return `/skills/${skillId}`;
-  return `/skills/${skillId}?v=${versionNumber}`;
+function firstQueryValue(
+  value: string | string[] | undefined,
+): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ v?: string | string[]; code?: string | string[] }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const query = await searchParams;
+  const versionNumber = parseVersionParam(query.v);
+  const code = firstQueryValue(query.code);
+  const unlock = matchesPrivateShareCode(code);
+
+  return {
+    alternates: {
+      types: {
+        "text/markdown": skillSharePath(id, {
+          versionNumber,
+          raw: true,
+          code: unlock ? code : undefined,
+        }),
+      },
+    },
+  };
 }
 
 export default async function SkillDetailPage({
@@ -29,19 +56,30 @@ export default async function SkillDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ v?: string | string[]; edit?: string | string[] }>;
+  searchParams: Promise<{
+    v?: string | string[];
+    edit?: string | string[];
+    code?: string | string[];
+  }>;
 }) {
   const session = await getSession();
   const { id } = await params;
   const query = await searchParams;
   const versionNumber = parseVersionParam(query.v);
   const startInEdit = parseFlagParam(query.edit);
+  const code = firstQueryValue(query.code);
+  const includePrivate = matchesPrivateShareCode(code);
 
-  const lookup = await lookupSkillVersion(id, session?.user.id, { versionNumber });
+  const lookup = await lookupSkillVersion(id, session?.user.id, {
+    versionNumber,
+    includePrivate,
+  });
 
   if (lookup.status === "deleted") {
     if (lookup.redirectToVersionNumber == null) notFound();
-    const liveVersions = await getSkillVersions(lookup.skillId, session?.user.id);
+    const liveVersions = await getSkillVersions(lookup.skillId, session?.user.id, {
+      includePrivate,
+    });
     const latestLive =
       [...liveVersions].reverse().find((version) => !version.deleted)
         ?.versionNumber ?? lookup.redirectToVersionNumber;
@@ -50,6 +88,7 @@ export default async function SkillDetailPage({
         lookup.skillId,
         lookup.redirectToVersionNumber,
         latestLive,
+        { code: includePrivate ? code : undefined },
       ),
     );
   }
@@ -57,7 +96,9 @@ export default async function SkillDetailPage({
   if (lookup.status !== "live") notFound();
   const skill = lookup.skill;
 
-  const versions = await getSkillVersions(id, session?.user.id);
+  const versions = await getSkillVersions(id, session?.user.id, {
+    includePrivate,
+  });
   const versionEntries = versions.map((version) => ({
     id: version.id,
     versionNumber: version.versionNumber,
@@ -76,9 +117,11 @@ export default async function SkillDetailPage({
   const isLatestVersion = selectedVersionNumber === latestVersionNumber;
   const liveVersionCount = versions.filter((version) => !version.deleted).length;
 
-  const returnTo = isLatestVersion
-    ? `/skills/${skill.id}`
-    : `/skills/${skill.id}?v=${selectedVersionNumber}`;
+  const returnTo = skillSharePath(skill.id, {
+    versionNumber: selectedVersionNumber,
+    latestVersionNumber,
+    code: includePrivate ? code : undefined,
+  });
   const loginHref = loginStartHref(returnTo);
   const canEdit = Boolean(
     session?.user.id && skill.ownerUserId === session.user.id,

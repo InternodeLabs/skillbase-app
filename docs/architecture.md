@@ -53,6 +53,8 @@ control (including from older versions) to branch a separate copy.
 - Visible if `visibility = 'public'` **or** `skill.owner_user_id = viewer`.
 - URL param `/skills/[id]` is the skill lineage **UUID**. Legacy slug URLs still
   resolve for older links.
+- **Share URLs:** `/skills/[id]` is the website. `/skills/[id]?raw=1` (optional
+  `v=N`) returns the skill markdown as `text/markdown` for any client.
 
 Defined in `src/lib/db/schema.ts`. Queried via `src/lib/skills/data.ts`.
 

@@ -156,10 +156,16 @@ async function resolveForkOrigin(
 /**
  * A version is visible to a viewer when it is not deleted, and it is public
  * or the viewer owns the skill (so they can see their own private versions).
+ * `includePrivate` unlocks any non-deleted version (hidden share-code bypass).
  */
-function visibleToViewer(viewerUserId?: string | null) {
-  const isPublic = eq(skillVersions.visibility, "public");
+function visibleToViewer(
+  viewerUserId?: string | null,
+  includePrivate?: boolean,
+) {
   const notDeleted = isNull(skillVersions.deletedAt);
+  if (includePrivate) return notDeleted;
+
+  const isPublic = eq(skillVersions.visibility, "public");
   const visibility = viewerUserId
     ? or(isPublic, eq(skills.ownerUserId, viewerUserId))
     : isPublic;
@@ -224,7 +230,7 @@ export type SkillVersionLookup =
 export async function lookupSkillVersion(
   idOrSlug: string,
   viewerUserId?: string | null,
-  options?: { versionNumber?: number },
+  options?: { versionNumber?: number; includePrivate?: boolean },
 ): Promise<SkillVersionLookup> {
   const skill = await getSkill(idOrSlug, viewerUserId, options);
   if (skill) return { status: "live", skill };
@@ -252,6 +258,7 @@ export async function lookupSkillVersion(
   if (!tombstone?.deletedAt) return { status: "missing" };
 
   const canKnow =
+    options.includePrivate ||
     tombstone.visibility === "public" ||
     Boolean(viewerUserId && tombstone.ownerUserId === viewerUserId);
   if (!canKnow) return { status: "missing" };
@@ -264,7 +271,7 @@ export async function lookupSkillVersion(
       and(
         eq(skills.id, tombstone.skillId),
         lt(skillVersions.versionNumber, options.versionNumber),
-        visibleToViewer(viewerUserId),
+        visibleToViewer(viewerUserId, options.includePrivate),
       ),
     )
     .orderBy(desc(skillVersions.versionNumber))
@@ -282,7 +289,12 @@ export async function lookupSkillVersion(
     .select({ versionNumber: skillVersions.versionNumber })
     .from(skillVersions)
     .innerJoin(skills, eq(skills.id, skillVersions.skillId))
-    .where(and(eq(skills.id, tombstone.skillId), visibleToViewer(viewerUserId)))
+    .where(
+      and(
+        eq(skills.id, tombstone.skillId),
+        visibleToViewer(viewerUserId, options.includePrivate),
+      ),
+    )
     .orderBy(desc(skillVersions.versionNumber))
     .limit(1);
 
@@ -301,11 +313,12 @@ export async function lookupSkillVersion(
 export async function getSkill(
   idOrSlug: string,
   viewerUserId?: string | null,
-  options?: { versionNumber?: number },
+  options?: { versionNumber?: number; includePrivate?: boolean },
 ): Promise<Skill | undefined> {
   const byId = UUID_RE.test(idOrSlug)
     ? eq(skills.id, idOrSlug)
     : eq(skills.slug, idOrSlug);
+  const visibility = visibleToViewer(viewerUserId, options?.includePrivate);
 
   if (options?.versionNumber != null) {
     const rows = await db
@@ -316,7 +329,7 @@ export async function getSkill(
         and(
           byId,
           eq(skillVersions.versionNumber, options.versionNumber),
-          visibleToViewer(viewerUserId),
+          visibility,
         ),
       )
       .limit(1);
@@ -332,7 +345,7 @@ export async function getSkill(
     .selectDistinctOn([skillVersions.skillId], skillFields)
     .from(skillVersions)
     .innerJoin(skills, eq(skills.id, skillVersions.skillId))
-    .where(and(byId, visibleToViewer(viewerUserId)))
+    .where(and(byId, visibility))
     .orderBy(skillVersions.skillId, desc(skillVersions.versionNumber))
     .limit(1);
 
@@ -352,6 +365,7 @@ export async function getSkill(
 export async function getSkillVersions(
   idOrSlug: string,
   viewerUserId?: string | null,
+  options?: { includePrivate?: boolean },
 ): Promise<SkillVersionHistoryItem[]> {
   const byId = UUID_RE.test(idOrSlug)
     ? eq(skills.id, idOrSlug)
@@ -366,17 +380,28 @@ export async function getSkillVersions(
   if (!lineage) return [];
 
   const isOwner = Boolean(viewerUserId && lineage.ownerUserId === viewerUserId);
-  const visibility = viewerUserId
-    ? or(
-        eq(skillVersions.visibility, "public"),
-        eq(skills.ownerUserId, viewerUserId),
-      )
-    : eq(skillVersions.visibility, "public");
+  const includePrivate = Boolean(options?.includePrivate);
 
-  // Owners see deleted tombstones; everyone else only live versions.
-  const where = isOwner
-    ? and(eq(skills.id, lineage.id), visibility)
-    : and(eq(skills.id, lineage.id), visibility, isNull(skillVersions.deletedAt));
+  let where;
+  if (includePrivate) {
+    where = and(eq(skills.id, lineage.id), isNull(skillVersions.deletedAt));
+  } else {
+    const visibility = viewerUserId
+      ? or(
+          eq(skillVersions.visibility, "public"),
+          eq(skills.ownerUserId, viewerUserId),
+        )
+      : eq(skillVersions.visibility, "public");
+
+    // Owners see deleted tombstones; everyone else only live versions.
+    where = isOwner
+      ? and(eq(skills.id, lineage.id), visibility)
+      : and(
+          eq(skills.id, lineage.id),
+          visibility,
+          isNull(skillVersions.deletedAt),
+        );
+  }
 
   const rows = await db
     .select({
