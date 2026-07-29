@@ -39,7 +39,7 @@ export function ScenarioPreview({ scenarios }: { scenarios: SkillScenario[] }) {
           <div className="h-8 w-20 rounded-md border border-border" />
         </div>
 
-        <div className="flex aspect-[16/7] items-center justify-center rounded-lg bg-skeleton text-xs text-muted">
+        <div className="flex aspect-16/7 items-center justify-center rounded-lg bg-skeleton text-xs text-muted">
           Image placeholder
         </div>
 

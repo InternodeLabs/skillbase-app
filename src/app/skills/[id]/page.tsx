@@ -78,7 +78,7 @@ export default async function SkillDetailPage({
           canEdit={canEdit}
         />
 
-        <section className="min-h-[28rem]">
+        <section className="min-h-112">
           <ScenarioPreview scenarios={skill.scenarios} />
         </section>
       </main>

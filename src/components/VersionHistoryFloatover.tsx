@@ -52,7 +52,7 @@ function VersionTimeline({
     <ol className="relative flex-1 space-y-0 overflow-y-auto px-4 py-5">
       <span
         aria-hidden
-        className="absolute top-5 bottom-5 left-[1.375rem] w-px bg-border"
+        className="absolute top-5 bottom-5 left-5.5 w-px bg-border"
       />
 
       {versions.map((version, index) => {

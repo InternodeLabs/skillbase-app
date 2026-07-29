@@ -11,12 +11,16 @@ export function SkillSearch() {
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get("q") ?? "";
   const [value, setValue] = useState(urlQuery);
+  const [prevUrlQuery, setPrevUrlQuery] = useState(urlQuery);
 
-  useEffect(() => {
+  // Sync local input when the URL query changes (back/forward, external nav).
+  // Adjust during render instead of an effect to avoid cascading renders.
+  if (urlQuery !== prevUrlQuery) {
+    setPrevUrlQuery(urlQuery);
     setValue(urlQuery);
-  }, [urlQuery]);
+  }
 
-  const commitQuery = useEffectEvent((next: string) => {
+  const navigateWithQuery = (next: string) => {
     const q = next.trim();
     const current = (searchParams.get("q") ?? "").trim();
     if (q === current && (q === "" || pathname === "/")) return;
@@ -31,6 +35,10 @@ export function SkillSearch() {
     else params.delete("q");
     const qs = params.toString();
     router.replace(qs ? `/?${qs}` : "/");
+  };
+
+  const commitQuery = useEffectEvent((next: string) => {
+    navigateWithQuery(next);
   });
 
   useEffect(() => {
@@ -50,7 +58,7 @@ export function SkillSearch() {
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            commitQuery(value);
+            navigateWithQuery(value);
           }
         }}
         placeholder="Search skills…"
