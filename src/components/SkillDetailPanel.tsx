@@ -2,7 +2,7 @@
 
 import type { MDXEditorMethods } from "@mdxeditor/editor";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { EllipsisVertical } from "lucide-react";
+import { EllipsisVertical, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -346,6 +346,30 @@ export function SkillDetailPanel({
           ? "Draft save failed"
           : null;
 
+  const copyShareLink = useCallback(
+    async (mode: "latest" | "version") => {
+      const path =
+        mode === "latest"
+          ? `/skills/${skill.id}`
+          : `/skills/${skill.id}?v=${selectedVersionNumber}`;
+      const url =
+        typeof window === "undefined"
+          ? path
+          : new URL(path, window.location.origin).toString();
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success(
+          mode === "latest"
+            ? "Copied link to latest version."
+            : `Copied link to version ${selectedVersionNumber}.0.`,
+        );
+      } catch {
+        toast.error("Could not copy link.");
+      }
+    },
+    [selectedVersionNumber, skill.id],
+  );
+
   return (
     <section className="flex flex-col rounded-xl border border-border bg-surface p-6 pb-1">
       <div className="mb-4 flex items-center justify-between gap-2">
@@ -512,6 +536,48 @@ export function SkillDetailPanel({
           </div>
         ) : (
           <div className="flex justify-center gap-2">
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  type="button"
+                  aria-label="Share skill link"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
+                >
+                  <Share2 className="size-3.5" aria-hidden />
+                  Share
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="center"
+                  sideOffset={6}
+                  className="z-50 min-w-52 rounded-md border border-border bg-surface p-1 shadow-md"
+                >
+                  <DropdownMenu.Item
+                    onSelect={() => void copyShareLink("latest")}
+                    className="cursor-pointer rounded px-3 py-2 outline-none data-highlighted:bg-background"
+                  >
+                    <span className="block text-sm text-foreground">
+                      Always latest
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      Opens the newest version
+                    </span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onSelect={() => void copyShareLink("version")}
+                    className="cursor-pointer rounded px-3 py-2 outline-none data-highlighted:bg-background"
+                  >
+                    <span className="block text-sm text-foreground">
+                      This version ({selectedVersionNumber}.0)
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      Stays on version {selectedVersionNumber}.0
+                    </span>
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
             {canEdit && !isLatestVersion ? (
               <Link
                 href={`/skills/${skill.id}`}
