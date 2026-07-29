@@ -42,10 +42,12 @@ export function AppHeader({
   user,
   back,
   returnTo,
+  showSearch = true,
 }: {
   user?: SessionUser | null;
   back?: { href: string; label: string };
   returnTo?: string;
+  showSearch?: boolean;
 }) {
   const signInHref = loginStartHref(returnTo ?? "/");
   const signedIn = Boolean(user);
@@ -68,13 +70,15 @@ export function AppHeader({
         </div>
 
         <div className="ml-auto flex min-w-0 items-center gap-3">
-          <Suspense
-            fallback={
-              <div className="h-9 w-full max-w-56 rounded-md border border-border bg-background sm:w-56" />
-            }
-          >
-            <SkillSearch />
-          </Suspense>
+          {showSearch ? (
+            <Suspense
+              fallback={
+                <div className="h-9 w-full max-w-56 rounded-md border border-border bg-background sm:w-56" />
+              }
+            >
+              <SkillSearch />
+            </Suspense>
+          ) : null}
 
           {user ? (
             <div className="flex items-center gap-2">

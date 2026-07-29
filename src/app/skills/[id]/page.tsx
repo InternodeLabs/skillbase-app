@@ -60,8 +60,8 @@ export default async function SkillDetailPage({
     <>
       <AppHeader
         user={session?.user}
-        back={{ href: "/", label: "Skill Library" }}
         returnTo={returnTo}
+        showSearch={false}
       />
 
       <main className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-2">
