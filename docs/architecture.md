@@ -16,11 +16,12 @@ add ops we don’t need. Two tables + a self-reference are enough.
 ```
 skill                          skill_version
 ─────                          ─────────────
-id (uuid)                      id (uuid)
-slug (unique, URL id)          skill_id → skill
+id (uuid, URL id)              id (uuid)
+slug (unique)                  skill_id → skill
 owner_user_id (portal id)      version_number (1,2,3… per skill)
 forked_from_version_id ───┐    name, summary, description, usage
-created_at                │    parameters / example_output / scenarios (jsonb)
+created_at                │    thumbnail_url (optional)
+                          │    parameters / example_output / scenarios (jsonb)
                           └──► visibility: public | private
                                author_user_id
                                created_at
@@ -42,7 +43,8 @@ skill B (owner=jen, forked_from = A.v2)
 - Library / detail: latest version the viewer may see (`DISTINCT ON (skill_id)`
   ordered by `version_number desc`).
 - Visible if `visibility = 'public'` **or** `skill.owner_user_id = viewer`.
-- URL param `/skills/[id]` is the skill **slug**, not the UUID.
+- URL param `/skills/[id]` is the skill lineage **UUID**. Legacy slug URLs still
+  resolve for older links.
 
 Defined in `src/lib/db/schema.ts`. Queried via `src/lib/skills/data.ts`.
 

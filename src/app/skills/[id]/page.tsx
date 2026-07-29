@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/components/AppHeader";
+import { MarkdownContent } from "@/components/MarkdownContent";
 import { ScenarioPreview } from "@/components/ScenarioPreview";
 import { getSession } from "@/lib/auth/server";
 import { getSkill } from "@/lib/skills/data";
@@ -16,8 +17,13 @@ export default async function SkillDetailPage({
   const skill = await getSkill(id, session?.user.id);
   if (!skill) notFound();
 
-  const returnTo = `/skills/${id}`;
+  const returnTo = `/skills/${skill.id}`;
   const loginHref = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+  const hasUsage = Boolean(skill.usage.trim());
+  const hasParameters = skill.parameters.length > 0;
+  const hasExampleOutput =
+    Boolean(skill.exampleOutput.title.trim()) ||
+    skill.exampleOutput.items.length > 0;
 
   return (
     <>
@@ -31,45 +37,61 @@ export default async function SkillDetailPage({
         {/* Left column: skill definition */}
         <section className="flex flex-col rounded-xl border border-border bg-surface p-6">
           <h1 className="text-xl font-semibold tracking-tight">{skill.name}</h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
+          <MarkdownContent className="markdown-preview mt-3 text-sm leading-relaxed text-foreground">
             {skill.description}
-          </p>
+          </MarkdownContent>
 
-          <h2 className="mt-6 text-sm font-semibold">Usage</h2>
-          <pre className="mt-2 overflow-x-auto rounded-lg bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
-            {skill.usage}
-          </pre>
+          {hasUsage ? (
+            <>
+              <h2 className="mt-6 text-sm font-semibold">Usage</h2>
+              <pre className="mt-2 overflow-x-auto rounded-lg bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
+                {skill.usage}
+              </pre>
+            </>
+          ) : null}
 
-          <h2 className="mt-6 text-sm font-semibold">Parameters</h2>
-          <ul className="mt-2 space-y-1.5 text-sm text-muted">
-            {skill.parameters.map((param) => (
-              <li key={param.name} className="flex gap-2">
-                <span aria-hidden className="text-muted">
-                  •
-                </span>
-                <span>
-                  <code className="font-mono font-medium text-foreground">
-                    {param.name}
-                  </code>{" "}
-                  — {param.description}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {hasParameters ? (
+            <>
+              <h2 className="mt-6 text-sm font-semibold">Parameters</h2>
+              <ul className="mt-2 space-y-1.5 text-sm text-muted">
+                {skill.parameters.map((param) => (
+                  <li key={param.name} className="flex gap-2">
+                    <span aria-hidden className="text-muted">
+                      •
+                    </span>
+                    <span>
+                      <code className="font-mono font-medium text-foreground">
+                        {param.name}
+                      </code>{" "}
+                      — {param.description}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
 
-          <h2 className="mt-6 text-sm font-semibold">Example Output</h2>
-          <div className="mt-2 rounded-lg border border-border bg-background p-4">
-            <p className="text-sm font-medium text-foreground">
-              {skill.exampleOutput.title}
-            </p>
-            <ol className="mt-2 space-y-1 text-sm text-muted">
-              {skill.exampleOutput.items.map((item, index) => (
-                <li key={index}>
-                  {index + 1}. {item}
-                </li>
-              ))}
-            </ol>
-          </div>
+          {hasExampleOutput ? (
+            <>
+              <h2 className="mt-6 text-sm font-semibold">Example Output</h2>
+              <div className="mt-2 rounded-lg border border-border bg-background p-4">
+                {skill.exampleOutput.title ? (
+                  <p className="text-sm font-medium text-foreground">
+                    {skill.exampleOutput.title}
+                  </p>
+                ) : null}
+                {skill.exampleOutput.items.length > 0 ? (
+                  <ol className="mt-2 space-y-1 text-sm text-muted">
+                    {skill.exampleOutput.items.map((item, index) => (
+                      <li key={index}>
+                        {index + 1}. {item}
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+              </div>
+            </>
+          ) : null}
 
           <div className="mt-auto pt-8">
             <div className="flex justify-center">

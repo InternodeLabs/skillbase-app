@@ -8,6 +8,13 @@
       "when": 1785289773811,
       "tag": "0000_material_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785292280157,
+      "tag": "0001_spooky_cammi",
+      "breakpoints": true
     }
   ]
 }

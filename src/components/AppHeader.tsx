@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { UploadSkillButton } from "@/components/UploadSkillButton";
 import type { SessionUser } from "@/lib/auth/session";
 
 function initials(user: SessionUser): string {
@@ -36,13 +37,19 @@ export function AppHeader({
               <span className="hidden sm:inline">{back.label}</span>
             </Link>
           ) : (
-            <Link href="/" className="flex items-center gap-2">
-              <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-xs font-bold text-accent-foreground">
-                SB
-              </span>
-              <span className="text-sm font-semibold tracking-tight">Skillbase</span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/" className="flex items-center gap-2">
+                <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-xs font-bold text-accent-foreground">
+                  SB
+                </span>
+                <span className="text-sm font-semibold tracking-tight">
+                  Skillbase
+                </span>
+              </Link>
+              {user ? <UploadSkillButton /> : null}
+            </div>
           )}
+          {back && user ? <UploadSkillButton /> : null}
         </div>
 
         <div className="ml-auto flex items-center gap-3">

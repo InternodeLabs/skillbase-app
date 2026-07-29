@@ -3,6 +3,7 @@
 :root {
   --background: #f7f7f8;
   --surface: #ffffff;
+  --tile-footer: #fafafa;
   --foreground: #18181b;
   --muted: #71717a;
   --border: #e4e4e7;
@@ -14,6 +15,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-tile-footer: var(--tile-footer);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
@@ -43,4 +45,102 @@ body {
 .skeleton {
   background: var(--skeleton);
   animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.markdown-preview :where(h1, h2, h3, h4) {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+}
+
+.markdown-preview :where(h1) {
+  font-size: 1.25rem;
+}
+
+.markdown-preview :where(h2) {
+  font-size: 1.1rem;
+}
+
+.markdown-preview :where(h3, h4) {
+  font-size: 1rem;
+}
+
+.markdown-preview :where(p, ul, ol, pre, blockquote) {
+  margin: 0.65em 0;
+}
+
+.markdown-preview :where(ul, ol) {
+  padding-left: 1.25rem;
+}
+
+.markdown-preview :where(ul) {
+  list-style: disc;
+}
+
+.markdown-preview :where(ol) {
+  list-style: decimal;
+}
+
+.markdown-preview :where(code) {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  background: var(--skeleton);
+  border-radius: 0.25rem;
+  padding: 0.1em 0.35em;
+}
+
+.markdown-preview :where(pre) {
+  overflow-x: auto;
+  background: var(--skeleton);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.markdown-preview :where(pre code) {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown-preview :where(a) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-preview :where(blockquote) {
+  border-left: 3px solid var(--border);
+  padding-left: 0.75rem;
+  color: var(--muted);
+}
+
+.markdown-preview :where(:first-child) {
+  margin-top: 0;
+}
+
+.markdown-preview :where(:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-preview-tile :where(h1, h2, h3, h4) {
+  font-size: 0.95rem;
+  margin-top: 0.45em;
+  margin-bottom: 0.2em;
+}
+
+.markdown-preview-tile :where(p, ul, ol, pre, blockquote) {
+  margin: 0.3em 0;
+}
+
+.markdown-preview-tile :where(ul, ol) {
+  padding-left: 0.9rem;
+}
+
+.markdown-preview-tile :where(pre) {
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.markdown-preview-tile :where(code) {
+  font-size: 0.9em;
+  padding: 0.05em 0.2em;
 }

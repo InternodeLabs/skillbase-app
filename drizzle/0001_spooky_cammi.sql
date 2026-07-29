@@ -1,0 +1,1 @@
+ALTER TABLE "skill_version" ADD COLUMN "thumbnail_url" text;

@@ -49,6 +49,7 @@ export const skillVersions = pgTable(
     summary: text("summary").notNull(),
     description: text("description").notNull(),
     usage: text("usage").notNull(),
+    thumbnailUrl: text("thumbnail_url"),
     parameters: jsonb("parameters")
       .$type<SkillParameter[]>()
       .notNull()
