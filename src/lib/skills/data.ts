@@ -4,7 +4,12 @@ import slugify from "slugify";
 import { db } from "@/lib/db/client";
 import { skills, skillVersions } from "@/lib/db/schema";
 
-import type { Skill, SkillForkOrigin, SkillVersionHistoryItem } from "./types";
+import type {
+  Skill,
+  SkillForkOrigin,
+  SkillVersionHistoryItem,
+  SkillVisibility,
+} from "./types";
 
 export type {
   Skill,
@@ -13,6 +18,7 @@ export type {
   SkillParameter,
   SkillScenario,
   SkillVersionHistoryItem,
+  SkillVisibility,
 } from "./types";
 
 /** How many markdown source lines to render in a library tile preview. */
@@ -87,6 +93,7 @@ function toSkill(
     ownerUserId: row.ownerUserId,
     versionId: row.versionId,
     versionNumber: row.versionNumber,
+    visibility: row.visibility,
     forkedFrom: forkedFrom ?? null,
     draftMarkdown: isOwner ? row.draftMarkdown : null,
     draftUpdatedAt: isOwner ? row.draftUpdatedAt : null,
@@ -377,6 +384,7 @@ export async function getSkillVersions(
       versionNumber: skillVersions.versionNumber,
       createdAt: skillVersions.createdAt,
       deletedAt: skillVersions.deletedAt,
+      visibility: skillVersions.visibility,
       isForked: sql<boolean>`exists (
         select 1 from skill as fork
         where fork.forked_from_version_id = ${skillVersions.id}
@@ -394,6 +402,7 @@ export async function getSkillVersions(
     changeSummary: null,
     deleted: Boolean(row.deletedAt),
     isForked: Boolean(row.isForked),
+    visibility: row.visibility,
   }));
 }
 
@@ -467,6 +476,7 @@ export async function createSkillFromMarkdown(input: {
     exampleOutput: { title: "", items: [] },
     scenarios: [],
     ownerUserId: input.ownerUserId,
+    visibility: "private",
   };
 }
 
@@ -530,6 +540,7 @@ export async function forkSkillFromVersion(input: {
     ownerUserId: input.ownerUserId,
     versionId: version.id,
     versionNumber: 1,
+    visibility: "private",
     draftMarkdown: null,
     draftUpdatedAt: null,
   };
@@ -703,6 +714,63 @@ export async function deleteSkillVersion(input: {
 }
 
 /**
+ * In-place visibility change for the latest live version. Owner only.
+ * Does not create a new version — visibility is metadata, not content history.
+ */
+export async function updateLatestSkillVisibility(input: {
+  skillId: string;
+  visibility: SkillVisibility;
+  ownerUserId: string;
+}): Promise<Skill> {
+  if (input.visibility !== "public" && input.visibility !== "private") {
+    throw new Error("visibility must be public or private.");
+  }
+
+  const byId = UUID_RE.test(input.skillId)
+    ? eq(skills.id, input.skillId)
+    : eq(skills.slug, input.skillId);
+
+  const [lineage] = await db
+    .select({ id: skills.id, ownerUserId: skills.ownerUserId })
+    .from(skills)
+    .where(byId)
+    .limit(1);
+
+  if (!lineage) throw new Error("Skill not found.");
+  if (lineage.ownerUserId !== input.ownerUserId) {
+    throw new Error("Only the skill owner can change visibility.");
+  }
+
+  const [latest] = await db
+    .select({
+      id: skillVersions.id,
+      versionNumber: skillVersions.versionNumber,
+    })
+    .from(skillVersions)
+    .where(
+      and(
+        eq(skillVersions.skillId, lineage.id),
+        isNull(skillVersions.deletedAt),
+      ),
+    )
+    .orderBy(desc(skillVersions.versionNumber))
+    .limit(1);
+
+  if (!latest) throw new Error("Skill has no versions to update.");
+
+  await db
+    .update(skillVersions)
+    .set({ visibility: input.visibility })
+    .where(eq(skillVersions.id, latest.id));
+
+  const skill = await getSkill(lineage.id, input.ownerUserId, {
+    versionNumber: latest.versionNumber,
+  });
+  if (!skill) throw new Error("Skill version not found.");
+  return skill;
+}
+
+/**
  * Append a new version from edited Markdown. Only the skill owner may publish.
  * Clears any draft after publishing.
  */
@@ -710,9 +778,18 @@ export async function createSkillVersion(input: {
   skillId: string;
   markdown: string;
   authorUserId: string;
+  /** Defaults to the previous live version's visibility. */
+  visibility?: SkillVisibility;
 }): Promise<Skill> {
   const markdown = input.markdown.trim();
   if (!markdown) throw new Error("Markdown content is required.");
+  if (
+    input.visibility != null &&
+    input.visibility !== "public" &&
+    input.visibility !== "private"
+  ) {
+    throw new Error("visibility must be public or private.");
+  }
 
   const byId = UUID_RE.test(input.skillId)
     ? eq(skills.id, input.skillId)
@@ -774,21 +851,25 @@ export async function createSkillVersion(input: {
 
   const nextVersion = latest.versionNumber + 1;
   const summary = summaryFromMarkdown(markdown);
+  const visibility = input.visibility ?? template.visibility;
 
-  await db.insert(skillVersions).values({
-    skillId: lineage.id,
-    versionNumber: nextVersion,
-    name: template.name,
-    summary,
-    description: markdown,
-    usage: "",
-    thumbnailUrl: template.thumbnailUrl,
-    parameters: [],
-    exampleOutput: { title: "", items: [] },
-    scenarios: template.scenarios,
-    visibility: template.visibility,
-    authorUserId: input.authorUserId,
-  });
+  const [created] = await db
+    .insert(skillVersions)
+    .values({
+      skillId: lineage.id,
+      versionNumber: nextVersion,
+      name: template.name,
+      summary,
+      description: markdown,
+      usage: "",
+      thumbnailUrl: template.thumbnailUrl,
+      parameters: [],
+      exampleOutput: { title: "", items: [] },
+      scenarios: template.scenarios,
+      visibility,
+      authorUserId: input.authorUserId,
+    })
+    .returning({ id: skillVersions.id });
 
   await db
     .update(skills)
@@ -806,6 +887,9 @@ export async function createSkillVersion(input: {
     exampleOutput: { title: "", items: [] },
     scenarios: template.scenarios,
     ownerUserId: lineage.ownerUserId,
+    versionId: created.id,
+    versionNumber: nextVersion,
+    visibility,
     draftMarkdown: null,
     draftUpdatedAt: null,
   };

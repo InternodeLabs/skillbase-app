@@ -13,6 +13,8 @@ export interface SkillScenario {
   label: string;
 }
 
+export type SkillVisibility = "public" | "private";
+
 /** The shape the UI renders. `id` is the skill lineage UUID (URL param). */
 export interface Skill {
   id: string;
@@ -29,6 +31,8 @@ export interface Skill {
   /** Snapshot identity for the version currently shown. */
   versionId?: string;
   versionNumber?: number;
+  /** Visibility of the version currently shown. */
+  visibility?: SkillVisibility;
   /** Present when this skill lineage was forked from another version. */
   forkedFrom?: SkillForkOrigin | null;
   /** Owner-only unpublished edits. Null when none. */
@@ -56,4 +60,5 @@ export interface SkillVersionHistoryItem {
   deleted: boolean;
   /** True when another skill was forked from this version. */
   isForked: boolean;
+  visibility: SkillVisibility;
 }

@@ -19,11 +19,47 @@ import { ForwardRefEditor } from "@/components/mdx/ForwardRefEditor";
 import { VersionHistoryFloatover } from "@/components/VersionHistoryFloatover";
 import type { VersionHistoryEntry } from "@/components/VersionHistoryFloatover";
 import { composeSkillMarkdown } from "@/lib/skills/markdown";
-import type { Skill } from "@/lib/skills/types";
+import type { Skill, SkillVisibility } from "@/lib/skills/types";
 
 const AUTOSAVE_MS = 800;
 
 type DraftStatus = "idle" | "dirty" | "saving" | "saved" | "error";
+
+function VisibilityChip({
+  visibility,
+  interactive,
+  disabled,
+  onToggle,
+}: {
+  visibility: SkillVisibility;
+  interactive: boolean;
+  disabled?: boolean;
+  onToggle?: () => void;
+}) {
+  const label = visibility === "public" ? "Public" : "Private";
+  const className =
+    "rounded-md bg-skeleton px-2 py-1 text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-40";
+
+  if (!interactive || !onToggle) {
+    return <span className="rounded-md bg-skeleton px-2 py-1 text-muted">{label}</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onToggle}
+      title={
+        visibility === "public"
+          ? "Currently public — click to make private"
+          : "Currently private — click to make public"
+      }
+      className={className}
+    >
+      {label}
+    </button>
+  );
+}
 
 export function SkillDetailPanel({
   skill,
@@ -65,13 +101,21 @@ export function SkillDetailPanel({
     ? (skill.draftMarkdown as string)
     : publishedMarkdown;
 
+  const currentVisibility: SkillVisibility = skill.visibility ?? "private";
   const [editing, setEditing] = useState(initialEditing);
   const [draft, setDraft] = useState(initialEditorMarkdown);
+  const [publishVisibility, setPublishVisibility] =
+    useState<SkillVisibility>(currentVisibility);
   const [publishing, setPublishing] = useState(false);
+  const [updatingVisibility, setUpdatingVisibility] = useState(false);
   const [forking, setForking] = useState(false);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>(
     showDraft ? "saved" : "idle",
   );
+
+  useEffect(() => {
+    setPublishVisibility(currentVisibility);
+  }, [currentVisibility]);
 
   useEffect(() => {
     latestDraftRef.current = draft;
@@ -142,9 +186,17 @@ export function SkillDetailPanel({
       ? skill.draftMarkdown
       : publishedMarkdown;
     setDraft(next);
+    setPublishVisibility(currentVisibility);
     setDraftStatus(skill.draftMarkdown?.trim() ? "saved" : "idle");
     setEditing(true);
-  }, [isLatestVersion, publishedMarkdown, router, skill.draftMarkdown, skill.id]);
+  }, [
+    currentVisibility,
+    isLatestVersion,
+    publishedMarkdown,
+    router,
+    skill.draftMarkdown,
+    skill.id,
+  ]);
 
   const forkAndEdit = useCallback(async () => {
     if (forking) return;
@@ -210,6 +262,39 @@ export function SkillDetailPanel({
     }
   }, [canEdit, publishedMarkdown, router, skill.id]);
 
+  const toggleLatestVisibility = useCallback(async () => {
+    if (!canEdit || !isLatestVersion || updatingVisibility) return;
+    const next: SkillVisibility =
+      currentVisibility === "public" ? "private" : "public";
+    setUpdatingVisibility(true);
+    try {
+      const response = await fetch(`/api/skills/${skill.id}/visibility`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibility: next }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error || "Could not update visibility.");
+      }
+      toast.success(next === "public" ? "Made public." : "Made private.");
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not update visibility.",
+      );
+    } finally {
+      setUpdatingVisibility(false);
+    }
+  }, [
+    canEdit,
+    currentVisibility,
+    isLatestVersion,
+    router,
+    skill.id,
+    updatingVisibility,
+  ]);
+
   const publishVersion = useCallback(async () => {
     const markdown = (editorRef.current?.getMarkdown() ?? draft).trim();
     if (!markdown) {
@@ -227,7 +312,7 @@ export function SkillDetailPanel({
       const response = await fetch(`/api/skills/${skill.id}/versions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markdown }),
+        body: JSON.stringify({ markdown, visibility: publishVisibility }),
       });
       const data = (await response.json()) as { error?: string };
 
@@ -237,7 +322,11 @@ export function SkillDetailPanel({
         return;
       }
 
-      toast.success("Published as a new version.");
+      toast.success(
+        publishVisibility === "public"
+          ? "Published as a public version."
+          : "Published as a private version.",
+      );
       setDraftStatus("idle");
       setEditing(false);
       setPublishing(false);
@@ -246,7 +335,7 @@ export function SkillDetailPanel({
       toast.error("Could not publish version.");
       setPublishing(false);
     }
-  }, [draft, router, skill.id]);
+  }, [draft, publishVisibility, router, skill.id]);
 
   const draftStatusLabel =
     draftStatus === "saving" || draftStatus === "dirty"
@@ -276,6 +365,12 @@ export function SkillDetailPanel({
               </span>
             )
           ) : null}
+          <VisibilityChip
+            visibility={currentVisibility}
+            interactive={canEdit && isLatestVersion && !editing}
+            disabled={updatingVisibility}
+            onToggle={() => void toggleLatestVisibility()}
+          />
           {!editing && !isLatestVersion ? (
             <span className="rounded-md bg-skeleton px-2 py-1 text-foreground">
               Viewing version {selectedVersionNumber}.0
@@ -321,15 +416,47 @@ export function SkillDetailPanel({
       <div className="h-10 pb-10" />
       <div className="sticky bottom-0 z-10 -mx-6 mt-auto border-t border-border bg-surface/95 px-6 pt-4 pb-3.5 backdrop-blur-sm">
         {editing ? (
-          <div className="flex items-center gap-3">
-            <p
-              className={`min-w-0 flex-1 truncate text-sm font-medium ${
-                draftStatus === "error" ? "text-red-600" : "text-muted"
-              }`}
-            >
-              {draftStatusLabel ?? "\u00a0"}
-            </p>
-            <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <p
+                className={`min-w-0 truncate text-sm font-medium ${
+                  draftStatus === "error" ? "text-red-600" : "text-muted"
+                }`}
+              >
+                {draftStatusLabel ?? "\u00a0"}
+              </p>
+              <div
+                role="group"
+                aria-label="Visibility for this version"
+                className="inline-flex shrink-0 rounded-md border border-border p-0.5"
+              >
+                {(
+                  [
+                    ["private", "Private"],
+                    ["public", "Public"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const selected = publishVisibility === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={publishing || !canEdit}
+                      aria-pressed={selected}
+                      onClick={() => setPublishVisibility(value)}
+                      className={`rounded px-2.5 py-1 text-xs font-medium transition disabled:opacity-40 ${
+                        selected
+                          ? "bg-background text-foreground"
+                          : "text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center justify-end gap-1.5">
               <button
                 type="button"
                 disabled={publishing || !canEdit}

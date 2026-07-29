@@ -65,6 +65,7 @@ export default async function SkillDetailPage({
     changeSummary: version.changeSummary,
     deleted: version.deleted,
     isForked: version.isForked,
+    visibility: version.visibility,
   }));
 
   const latestVersionNumber =

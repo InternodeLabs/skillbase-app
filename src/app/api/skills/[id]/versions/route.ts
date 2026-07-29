@@ -25,10 +25,23 @@ export async function POST(
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { markdown } = body as { markdown?: unknown };
+  const { markdown, visibility } = body as {
+    markdown?: unknown;
+    visibility?: unknown;
+  };
   if (typeof markdown !== "string") {
     return NextResponse.json(
       { error: "markdown is required." },
+      { status: 400 },
+    );
+  }
+  if (
+    visibility !== undefined &&
+    visibility !== "public" &&
+    visibility !== "private"
+  ) {
+    return NextResponse.json(
+      { error: "visibility must be public or private." },
       { status: 400 },
     );
   }
@@ -38,6 +51,7 @@ export async function POST(
       skillId: id,
       markdown,
       authorUserId: session.user.id,
+      visibility,
     });
     return NextResponse.json({ skill }, { status: 201 });
   } catch (error) {

@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import type { SkillVisibility } from "@/lib/skills/types";
+
 export type VersionHistoryEntry = {
   id: string;
   versionNumber: number;
@@ -15,6 +17,7 @@ export type VersionHistoryEntry = {
   changeSummary: string | null;
   deleted: boolean;
   isForked: boolean;
+  visibility: SkillVisibility;
 };
 
 function versionLabel(versionNumber: number, deleted = false): string {
@@ -144,16 +147,21 @@ function VersionTimeline({
                     aria-hidden
                     className="relative z-10 ml-1.5 h-3.5 w-3.5 shrink-0 rounded-[3px] border border-muted bg-surface"
                   />
-                  <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3 pr-2">
-                    <span className="text-sm font-semibold text-muted">
-                      {versionLabel(version.versionNumber, true)}
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5 pr-2">
+                    <div className="flex min-w-0 items-baseline justify-between gap-3">
+                      <span className="text-sm font-semibold text-muted">
+                        {versionLabel(version.versionNumber, true)}
+                      </span>
+                      <time
+                        dateTime={version.createdAt}
+                        className="shrink-0 text-sm text-muted"
+                      >
+                        {versionDateLabel(version.createdAt)}
+                      </time>
+                    </div>
+                    <span className="text-xs text-muted">
+                      {version.visibility === "public" ? "Public" : "Private"}
                     </span>
-                    <time
-                      dateTime={version.createdAt}
-                      className="shrink-0 text-sm text-muted"
-                    >
-                      {versionDateLabel(version.createdAt)}
-                    </time>
                   </div>
                 </div>
               ) : (
@@ -170,16 +178,21 @@ function VersionTimeline({
                     aria-hidden
                     className="relative z-10 ml-1.5 h-3.5 w-3.5 shrink-0 rounded-[3px] bg-muted"
                   />
-                  <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3 pr-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      {versionLabel(version.versionNumber)}
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5 pr-2">
+                    <div className="flex min-w-0 items-baseline justify-between gap-3">
+                      <span className="text-sm font-semibold text-foreground">
+                        {versionLabel(version.versionNumber)}
+                      </span>
+                      <time
+                        dateTime={version.createdAt}
+                        className="shrink-0 text-sm text-muted"
+                      >
+                        {versionDateLabel(version.createdAt)}
+                      </time>
+                    </div>
+                    <span className="text-xs text-muted">
+                      {version.visibility === "public" ? "Public" : "Private"}
                     </span>
-                    <time
-                      dateTime={version.createdAt}
-                      className="shrink-0 text-sm text-muted"
-                    >
-                      {versionDateLabel(version.createdAt)}
-                    </time>
                   </div>
                 </button>
               )}
