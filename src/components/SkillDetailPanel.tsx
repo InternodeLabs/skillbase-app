@@ -1,6 +1,8 @@
 "use client";
 
 import type { MDXEditorMethods } from "@mdxeditor/editor";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { EllipsisVertical } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -201,18 +203,9 @@ export function SkillDetailPanel({
           : null;
 
   return (
-    <section className="flex flex-col rounded-xl border border-border bg-surface p-6">
+    <section className="flex flex-col rounded-xl border border-border bg-surface p-6 pb-1">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="min-h-5 text-xs font-medium">
-          {editing && draftStatusLabel ? (
-            <span
-              className={
-                draftStatus === "error" ? "text-red-600" : "text-muted"
-              }
-            >
-              {draftStatusLabel}
-            </span>
-          ) : null}
           {!editing && hasUnpublishedDraft && canEdit ? (
             <span className="rounded-md bg-skeleton px-2 py-1 text-foreground">
               Unpublished draft — not in version history yet
@@ -223,7 +216,7 @@ export function SkillDetailPanel({
       </div>
 
       {editing ? (
-        <div className="skill-mdx-editor min-h-[20rem]">
+        <div className="skill-mdx-editor min-h-80">
           <ForwardRefEditor
             key={skill.id}
             ref={editorRef}
@@ -235,44 +228,25 @@ export function SkillDetailPanel({
             contentEditableClassName="markdown-preview text-sm leading-relaxed text-foreground outline-none"
             placeholder="Write the skill markdown… Type / for blocks"
           />
+          
         </div>
       ) : (
         <MarkdownContent className="markdown-preview text-sm leading-relaxed text-foreground">
           {viewMarkdown}
         </MarkdownContent>
       )}
-
-      <div className="mt-auto pt-8">
-        {editing && draftStatusLabel ? (
-          <p
-            className={`mb-3 text-center text-sm font-medium ${
-              draftStatus === "error" ? "text-red-600" : "text-muted"
-            }`}
-          >
-            {draftStatusLabel}
-          </p>
-        ) : null}
-        <div className="flex flex-wrap justify-center gap-2">
-          {editing ? (
-            <>
-              <button
-                type="button"
-                disabled={publishing}
-                onClick={() => void stopEditing()}
-                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background disabled:opacity-40"
-              >
-                Done
-              </button>
-              {canEdit ? (
-                <button
-                  type="button"
-                  disabled={publishing}
-                  onClick={() => void discardDraft()}
-                  className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted transition hover:bg-background hover:text-foreground disabled:opacity-40"
-                >
-                  Discard draft
-                </button>
-              ) : null}
+      <div className="h-10 pb-10" />
+      <div className="sticky bottom-0 z-10 -mx-6 mt-auto border-t border-border bg-surface/95 px-6 pt-4 pb-3.5 backdrop-blur-sm">
+        {editing ? (
+          <div className="flex items-center gap-3">
+            <p
+              className={`min-w-0 flex-1 truncate text-sm font-medium ${
+                draftStatus === "error" ? "text-red-600" : "text-muted"
+              }`}
+            >
+              {draftStatusLabel ?? "\u00a0"}
+            </p>
+            <div className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
                 disabled={publishing || !canEdit}
@@ -281,26 +255,66 @@ export function SkillDetailPanel({
               >
                 {publishing ? "Publishing…" : "Publish version"}
               </button>
-            </>
-          ) : signedIn ? (
-            <button
-              type="button"
-              onClick={startEditing}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
-            >
-              {hasUnpublishedDraft && canEdit
-                ? "Continue editing"
-                : "Edit skill"}
-            </button>
-          ) : (
-            <Link
-              href={loginHref}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
-            >
-              Edit skill
-            </Link>
-          )}
-        </div>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    disabled={publishing}
+                    aria-label="More editing actions"
+                    className="inline-flex size-9 items-center justify-center rounded-md border border-border text-foreground transition hover:bg-background disabled:opacity-40"
+                  >
+                    <EllipsisVertical className="size-4" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={6}
+                    className="z-50 min-w-40 rounded-md border border-border bg-surface p-1 shadow-md"
+                  >
+                    <DropdownMenu.Item
+                      disabled={publishing}
+                      onSelect={() => void stopEditing()}
+                      className="cursor-pointer rounded px-3 py-2 text-sm text-foreground outline-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-background"
+                    >
+                      Done
+                    </DropdownMenu.Item>
+                    {canEdit ? (
+                      <DropdownMenu.Item
+                        disabled={publishing}
+                        onSelect={() => void discardDraft()}
+                        className="cursor-pointer rounded px-3 py-2 text-sm text-muted outline-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-background data-highlighted:text-foreground"
+                      >
+                        Discard draft
+                      </DropdownMenu.Item>
+                    ) : null}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            {signedIn ? (
+              <button
+                type="button"
+                onClick={startEditing}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
+              >
+                {hasUnpublishedDraft && canEdit
+                  ? "Continue editing"
+                  : "Edit skill"}
+              </button>
+            ) : (
+              <Link
+                href={loginHref}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
+              >
+                Edit skill
+              </Link>
+            )}
+          </div>
+        )}
         {editing && !canEdit ? (
           <p className="mt-2 text-center text-xs text-muted">
             Only the skill owner can save drafts or publish versions.
