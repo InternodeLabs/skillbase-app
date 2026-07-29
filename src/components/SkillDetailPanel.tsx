@@ -31,6 +31,7 @@ export function SkillDetailPanel({
   selectedVersionId,
   selectedVersionNumber,
   isLatestVersion,
+  liveVersionCount,
   initialEditing = false,
   loginHref,
   signedIn,
@@ -41,6 +42,7 @@ export function SkillDetailPanel({
   selectedVersionId: string | null;
   selectedVersionNumber: number;
   isLatestVersion: boolean;
+  liveVersionCount: number;
   initialEditing?: boolean;
   loginHref: string;
   signedIn: boolean;
@@ -291,6 +293,8 @@ export function SkillDetailPanel({
           versions={versions}
           selectedVersionId={selectedVersionId}
           selectedVersionNumber={selectedVersionNumber}
+          liveVersionCount={liveVersionCount}
+          canEdit={canEdit}
         />
       </div>
 

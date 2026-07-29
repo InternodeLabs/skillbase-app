@@ -66,6 +66,8 @@ export const skillVersions = pgTable(
       .notNull()
       .default("private"),
     authorUserId: text("author_user_id").notNull(),
+    // Soft-delete tombstone. Keeps version_number; hidden from reads/latest.
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

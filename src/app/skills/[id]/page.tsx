@@ -1,10 +1,10 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { AppHeader } from "@/components/AppHeader";
 import { ScenarioPreview } from "@/components/ScenarioPreview";
 import { SkillDetailPanel } from "@/components/SkillDetailPanel";
 import { getSession } from "@/lib/auth/server";
-import { getSkill, getSkillVersions } from "@/lib/skills/data";
+import { getSkillVersions, lookupSkillVersion } from "@/lib/skills/data";
 import { loginStartHref } from "@/lib/auth/urls";
 
 function parseVersionParam(value: string | string[] | undefined): number | undefined {
@@ -17,6 +17,11 @@ function parseVersionParam(value: string | string[] | undefined): number | undef
 function parseFlagParam(value: string | string[] | undefined): boolean {
   const raw = Array.isArray(value) ? value[0] : value;
   return raw === "1" || raw === "true";
+}
+
+function versionPath(skillId: string, versionNumber: number, latestVersionNumber: number) {
+  if (versionNumber === latestVersionNumber) return `/skills/${skillId}`;
+  return `/skills/${skillId}?v=${versionNumber}`;
 }
 
 export default async function SkillDetailPage({
@@ -32,8 +37,25 @@ export default async function SkillDetailPage({
   const versionNumber = parseVersionParam(query.v);
   const startInEdit = parseFlagParam(query.edit);
 
-  const skill = await getSkill(id, session?.user.id, { versionNumber });
-  if (!skill) notFound();
+  const lookup = await lookupSkillVersion(id, session?.user.id, { versionNumber });
+
+  if (lookup.status === "deleted") {
+    if (lookup.redirectToVersionNumber == null) notFound();
+    const liveVersions = await getSkillVersions(lookup.skillId, session?.user.id);
+    const latestLive =
+      [...liveVersions].reverse().find((version) => !version.deleted)
+        ?.versionNumber ?? lookup.redirectToVersionNumber;
+    permanentRedirect(
+      versionPath(
+        lookup.skillId,
+        lookup.redirectToVersionNumber,
+        latestLive,
+      ),
+    );
+  }
+
+  if (lookup.status !== "live") notFound();
+  const skill = lookup.skill;
 
   const versions = await getSkillVersions(id, session?.user.id);
   const versionEntries = versions.map((version) => ({
@@ -41,12 +63,17 @@ export default async function SkillDetailPage({
     versionNumber: version.versionNumber,
     createdAt: version.createdAt.toISOString(),
     changeSummary: version.changeSummary,
+    deleted: version.deleted,
+    isForked: version.isForked,
   }));
 
   const latestVersionNumber =
-    versions[versions.length - 1]?.versionNumber ?? skill.versionNumber ?? 1;
+    [...versions].reverse().find((version) => !version.deleted)?.versionNumber ??
+    skill.versionNumber ??
+    1;
   const selectedVersionNumber = skill.versionNumber ?? latestVersionNumber;
   const isLatestVersion = selectedVersionNumber === latestVersionNumber;
+  const liveVersionCount = versions.filter((version) => !version.deleted).length;
 
   const returnTo = isLatestVersion
     ? `/skills/${skill.id}`
@@ -72,6 +99,7 @@ export default async function SkillDetailPage({
           selectedVersionId={skill.versionId ?? null}
           selectedVersionNumber={selectedVersionNumber}
           isLatestVersion={isLatestVersion}
+          liveVersionCount={liveVersionCount}
           initialEditing={startInEdit && canEdit && isLatestVersion}
           loginHref={loginHref}
           signedIn={Boolean(session)}

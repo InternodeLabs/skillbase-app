@@ -52,4 +52,8 @@ export interface SkillVersionHistoryItem {
   createdAt: Date;
   /** What changed since the prior version. Null until BE writes it. */
   changeSummary: string | null;
+  /** Soft-deleted; shown as a tombstone in history. */
+  deleted: boolean;
+  /** True when another skill was forked from this version. */
+  isForked: boolean;
 }
