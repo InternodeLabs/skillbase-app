@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { MarkdownContent } from "@/components/MarkdownContent";
+import { ForwardRefEditor } from "@/components/mdx/ForwardRefEditor";
 import { FileUp, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -16,8 +16,28 @@ import { toast } from "sonner";
 
 const MD_ERROR = "Please choose a Markdown file (.md).";
 
+/** Derive a display name: underscores → spaces, drop trailing "skill", title case. */
 function nameFromFilename(filename: string): string {
-  return filename.replace(/\.(md|markdown|mdown|mkd)$/i, "").trim() || filename;
+  const base =
+    filename.replace(/\.(md|markdown|mdown|mkd)$/i, "").trim() || filename;
+  const withSpaces = base.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  const withoutSkill =
+    withSpaces.replace(/\bskill$/i, "").replace(/\s+/g, " ").trim() ||
+    withSpaces;
+
+  return withoutSkill
+    .split(" ")
+    .filter(Boolean)
+    .map(
+      (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+    )
+    .join(" ");
+}
+
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+function redactEmails(text: string): string {
+  return text.replace(EMAIL_RE, "[email]");
 }
 
 function isMarkdownFile(file: File): boolean {
@@ -69,6 +89,8 @@ export function UploadSkillButton() {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState<string | null>(null);
+  const [editorMarkdown, setEditorMarkdown] = useState("");
+  const [editorKey, setEditorKey] = useState(0);
   const [filename, setFilename] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -82,6 +104,7 @@ export function UploadSkillButton() {
     setError(null);
     setName("");
     setContent(null);
+    setEditorMarkdown("");
     setFilename(null);
     setSubmitting(false);
     if (inputRef.current) inputRef.current.value = "";
@@ -100,11 +123,13 @@ export function UploadSkillButton() {
     }
 
     try {
-      const text = await file.text();
+      const text = redactEmails(await file.text());
       setError(null);
       setFilename(file.name);
       setName(nameFromFilename(file.name));
+      setEditorMarkdown(text);
       setContent(text);
+      setEditorKey((key) => key + 1);
     } catch {
       setError("Could not read that file. Try again.");
     }
@@ -189,8 +214,8 @@ export function UploadSkillButton() {
                 Upload skill
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-sm text-muted">
-                Drop a Markdown file to preview it. The file name becomes the
-                skill name.
+                Drop a Markdown file to edit it. The file name becomes the skill
+                name.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
@@ -290,7 +315,7 @@ export function UploadSkillButton() {
                 <div>
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <p className="text-xs font-medium tracking-wide text-muted uppercase">
-                      Preview
+                      Markdown
                     </p>
                     <button
                       type="button"
@@ -301,8 +326,15 @@ export function UploadSkillButton() {
                       Choose another file
                     </button>
                   </div>
-                  <div className="max-h-64 overflow-y-auto rounded-lg border border-border bg-background px-4 py-3">
-                    <MarkdownContent>{content}</MarkdownContent>
+                  <div className="skill-mdx-editor max-h-64 overflow-y-auto rounded-lg border border-border bg-background px-4 py-3">
+                    <ForwardRefEditor
+                      key={editorKey}
+                      markdown={editorMarkdown}
+                      onChange={setContent}
+                      readOnly={submitting}
+                      contentEditableClassName="markdown-preview text-sm leading-relaxed text-foreground outline-none"
+                      placeholder="Edit the skill markdown… Type / for blocks"
+                    />
                   </div>
                 </div>
               </div>
