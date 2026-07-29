@@ -183,13 +183,21 @@ export function SkillDetailPanel({
     showDraft ? "saved" : "idle",
   );
 
-  useEffect(() => {
+  // Reset version/visibility-derived state during render when the underlying
+  // prop changes (React's "adjust state while rendering" pattern) rather than in
+  // an effect, which would trigger an extra render pass.
+  const versionKey = `${isLatestVersion}:${selectedVersionNumber}`;
+  const [prevVersionKey, setPrevVersionKey] = useState(versionKey);
+  if (versionKey !== prevVersionKey) {
+    setPrevVersionKey(versionKey);
     setShareLockedVersion(!isLatestVersion);
-  }, [isLatestVersion, selectedVersionNumber]);
+  }
 
-  useEffect(() => {
+  const [prevVisibility, setPrevVisibility] = useState(currentVisibility);
+  if (currentVisibility !== prevVisibility) {
+    setPrevVisibility(currentVisibility);
     setPublishVisibility(currentVisibility);
-  }, [currentVisibility]);
+  }
 
   useEffect(() => {
     latestDraftRef.current = draft;
