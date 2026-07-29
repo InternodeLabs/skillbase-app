@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
+import { BrandHomeLink } from "@/components/Brand";
 import { UploadSkillButton } from "@/components/UploadSkillButton";
 import { loginStartHref } from "@/lib/auth/urls";
 import type { SessionUser } from "@/lib/auth/session";
@@ -51,6 +52,7 @@ export function AppHeader({
     <header className="sticky top-0 z-10 border-b border-border bg-surface/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
+          <BrandHomeLink />
           {back ? (
             <Link
               href={back.href}
@@ -59,22 +61,8 @@ export function AppHeader({
               <span aria-hidden>←</span>
               <span className="hidden sm:inline">{back.label}</span>
             </Link>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link href="/" className="flex items-center gap-2">
-                <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-xs font-bold text-accent-foreground">
-                  SB
-                </span>
-                <span className="text-sm font-semibold tracking-tight">
-                  Skillbase
-                </span>
-              </Link>
-              <UploadOrSignIn signedIn={signedIn} signInHref={signInHref} />
-            </div>
-          )}
-          {back ? (
-            <UploadOrSignIn signedIn={signedIn} signInHref={signInHref} />
           ) : null}
+          <UploadOrSignIn signedIn={signedIn} signInHref={signInHref} />
         </div>
 
         <div className="ml-auto flex items-center gap-3">
@@ -92,7 +80,7 @@ export function AppHeader({
             <div className="flex items-center gap-2">
               <span
                 title={user.email}
-                className="grid h-8 w-8 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-foreground"
+                className="grid h-8 w-8 place-items-center rounded-full bg-skeleton text-xs font-semibold text-foreground"
               >
                 {initials(user)}
               </span>

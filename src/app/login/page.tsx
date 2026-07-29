@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { BrandLogo } from "@/components/Brand";
 import { getSession } from "@/lib/auth/server";
 import { loginStartHref } from "@/lib/auth/urls";
 
@@ -31,12 +32,8 @@ export default async function LoginPage({
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <span className="mb-3 grid h-11 w-11 place-items-center rounded-xl bg-accent text-sm font-bold text-accent-foreground">
-            SB
-          </span>
-          <h1 className="text-lg font-semibold tracking-tight">
-            Sign in to Skillbase
-          </h1>
+          <BrandLogo height={36} className="mb-4 h-9 w-auto" />
+          <h1 className="text-lg font-semibold tracking-tight">Sign in</h1>
           <p className="mt-1 text-sm text-muted">
             Use your Internode account to continue.
           </p>

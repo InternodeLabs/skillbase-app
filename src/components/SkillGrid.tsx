@@ -26,7 +26,16 @@ export async function SkillGrid({
             href={`/skills/${skill.id}`}
             className="group block overflow-hidden rounded-xl border border-border bg-tile-footer transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent/30"
           >
-            <SkillTilePreview skill={skill} />
+            <div className="relative">
+              <SkillTilePreview skill={skill} />
+              {skill.forkedFrom ? (
+                  <p className="mt-1.5 truncate text-[11px] text-muted absolute -bottom-1 right-0 py-1 px-2 bg-tile-footer rounded-tl-md">
+                    {skill.forkedFrom.accessible
+                      ? `Fork of ${skill.forkedFrom.skillName}`
+                      : "Forked skill"}
+                  </p>
+                ) : null}
+            </div>
             <div className="bg-tile-footer p-3">
               <h2 className="truncate text-sm font-medium text-foreground">
                 {skill.name}
@@ -34,13 +43,7 @@ export async function SkillGrid({
               <p className="mt-1 line-clamp-2 text-xs text-muted">
                 {skill.summary}
               </p>
-              {skill.forkedFrom ? (
-                <p className="mt-1.5 truncate text-[11px] text-muted">
-                  {skill.forkedFrom.accessible
-                    ? `Fork of ${skill.forkedFrom.skillName}`
-                    : "Forked skill"}
-                </p>
-              ) : null}
+              
             </div>
           </Link>
         </li>
