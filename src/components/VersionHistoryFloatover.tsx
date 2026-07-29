@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { format } from "date-fns";
 import { History, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 export type VersionHistoryEntry = {
@@ -21,13 +22,28 @@ function versionDateLabel(iso: string): string {
   return format(new Date(iso), "do MMMM");
 }
 
+function versionHref(skillId: string, versionNumber: number, latestVersionNumber: number) {
+  if (versionNumber === latestVersionNumber) {
+    return `/skills/${skillId}`;
+  }
+  return `/skills/${skillId}?v=${versionNumber}`;
+}
+
 function VersionTimeline({
+  skillId,
   versions,
   selectedVersionId,
+  latestVersionNumber,
+  onSelect,
 }: {
+  skillId: string;
   versions: VersionHistoryEntry[];
   selectedVersionId: string | null;
+  latestVersionNumber: number;
+  onSelect: () => void;
 }) {
+  const router = useRouter();
+
   if (versions.length === 0) {
     return <p className="px-4 py-8 text-sm text-muted">No versions yet.</p>;
   }
@@ -43,11 +59,22 @@ function VersionTimeline({
         const isSelected = version.id === selectedVersionId;
         const next = versions[index + 1];
         const showDelta = Boolean(next?.changeSummary);
+        const href = versionHref(
+          skillId,
+          version.versionNumber,
+          latestVersionNumber,
+        );
 
         return (
           <li key={version.id}>
-            <div
-              className={`relative flex items-center gap-3 rounded-md py-2.5 pr-2 pl-1 ${
+            <button
+              type="button"
+              aria-current={isSelected ? "true" : undefined}
+              onClick={() => {
+                onSelect();
+                router.push(href);
+              }}
+              className={`relative flex w-full items-center gap-3 rounded-md py-2.5 pr-2 pl-1 text-left transition hover:bg-skeleton/50 ${
                 isSelected ? "bg-skeleton/70" : ""
               }`}
             >
@@ -66,7 +93,7 @@ function VersionTimeline({
                   {versionDateLabel(version.createdAt)}
                 </time>
               </div>
-            </div>
+            </button>
 
             {showDelta && next?.changeSummary ? (
               <div className="relative flex items-start gap-3 py-3 pr-2 pl-1">
@@ -87,18 +114,24 @@ function VersionTimeline({
 }
 
 export function VersionHistoryFloatover({
+  skillId,
   skillName,
   versions,
+  selectedVersionId,
+  selectedVersionNumber,
 }: {
+  skillId: string;
   skillName: string;
   versions: VersionHistoryEntry[];
+  selectedVersionId: string | null;
+  selectedVersionNumber: number;
 }) {
   const [open, setOpen] = useState(false);
   const latest = versions[versions.length - 1] ?? null;
-  const selectedVersionId = latest?.id ?? null;
+  const latestVersionNumber = latest?.versionNumber ?? selectedVersionNumber;
   const triggerLabel = useMemo(
-    () => (latest ? versionLabel(latest.versionNumber) : "Version history"),
-    [latest],
+    () => versionLabel(selectedVersionNumber),
+    [selectedVersionNumber],
   );
 
   return (
@@ -139,8 +172,11 @@ export function VersionHistoryFloatover({
           </div>
 
           <VersionTimeline
+            skillId={skillId}
             versions={versions}
             selectedVersionId={selectedVersionId}
+            latestVersionNumber={latestVersionNumber}
+            onSelect={() => setOpen(false)}
           />
         </Dialog.Content>
       </Dialog.Portal>

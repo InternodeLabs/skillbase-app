@@ -34,6 +34,13 @@ export async function SkillGrid({
               <p className="mt-1 line-clamp-2 text-xs text-muted">
                 {skill.summary}
               </p>
+              {skill.forkedFrom ? (
+                <p className="mt-1.5 truncate text-[11px] text-muted">
+                  {skill.forkedFrom.accessible
+                    ? `Fork of ${skill.forkedFrom.skillName}`
+                    : "Forked skill"}
+                </p>
+              ) : null}
             </div>
           </Link>
         </li>

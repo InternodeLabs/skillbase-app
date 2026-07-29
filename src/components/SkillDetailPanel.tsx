@@ -28,12 +28,20 @@ type DraftStatus = "idle" | "dirty" | "saving" | "saved" | "error";
 export function SkillDetailPanel({
   skill,
   versions,
+  selectedVersionId,
+  selectedVersionNumber,
+  isLatestVersion,
+  initialEditing = false,
   loginHref,
   signedIn,
   canEdit,
 }: {
   skill: Skill;
   versions: VersionHistoryEntry[];
+  selectedVersionId: string | null;
+  selectedVersionNumber: number;
+  isLatestVersion: boolean;
+  initialEditing?: boolean;
   loginHref: string;
   signedIn: boolean;
   canEdit: boolean;
@@ -45,25 +53,40 @@ export function SkillDetailPanel({
 
   const publishedMarkdown = useMemo(() => composeSkillMarkdown(skill), [skill]);
   const hasUnpublishedDraft = Boolean(skill.draftMarkdown?.trim());
-  const initialEditorMarkdown = hasUnpublishedDraft
+  const showDraft =
+    canEdit && isLatestVersion && hasUnpublishedDraft;
+  const initialEditorMarkdown = showDraft
     ? (skill.draftMarkdown as string)
     : publishedMarkdown;
   // Owners with a draft should still see their work after reload (not the last publish).
-  const viewMarkdown =
-    canEdit && hasUnpublishedDraft
-      ? (skill.draftMarkdown as string)
-      : publishedMarkdown;
+  const viewMarkdown = showDraft
+    ? (skill.draftMarkdown as string)
+    : publishedMarkdown;
 
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialEditing);
   const [draft, setDraft] = useState(initialEditorMarkdown);
   const [publishing, setPublishing] = useState(false);
+  const [forking, setForking] = useState(false);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>(
-    hasUnpublishedDraft ? "saved" : "idle",
+    showDraft ? "saved" : "idle",
   );
 
   useEffect(() => {
     latestDraftRef.current = draft;
   }, [draft]);
+
+  useEffect(() => {
+    if (!initialEditing) return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("edit")) return;
+    url.searchParams.delete("edit");
+    const next = url.searchParams.toString();
+    window.history.replaceState(
+      null,
+      "",
+      next ? `${url.pathname}?${next}` : url.pathname,
+    );
+  }, [initialEditing]);
 
   useEffect(() => {
     return () => {
@@ -109,13 +132,43 @@ export function SkillDetailPanel({
   );
 
   const startEditing = useCallback(() => {
+    if (!isLatestVersion) {
+      router.push(`/skills/${skill.id}`);
+      return;
+    }
     const next = skill.draftMarkdown?.trim()
       ? skill.draftMarkdown
       : publishedMarkdown;
     setDraft(next);
     setDraftStatus(skill.draftMarkdown?.trim() ? "saved" : "idle");
     setEditing(true);
-  }, [publishedMarkdown, skill.draftMarkdown]);
+  }, [isLatestVersion, publishedMarkdown, router, skill.draftMarkdown, skill.id]);
+
+  const forkAndEdit = useCallback(async () => {
+    if (forking) return;
+    setForking(true);
+    try {
+      const response = await fetch(`/api/skills/${skill.id}/fork`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionNumber: selectedVersionNumber }),
+      });
+      const data = (await response.json()) as {
+        skill?: { id: string };
+        error?: string;
+      };
+      if (!response.ok || !data.skill?.id) {
+        throw new Error(data.error || "Could not fork skill.");
+      }
+      toast.success("Forked — opened your new copy.");
+      router.push(`/skills/${data.skill.id}?edit=1`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not fork skill.",
+      );
+      setForking(false);
+    }
+  }, [forking, router, selectedVersionNumber, skill.id]);
 
   const stopEditing = useCallback(async () => {
     if (autosaveTimer.current) {
@@ -205,14 +258,40 @@ export function SkillDetailPanel({
   return (
     <section className="flex flex-col rounded-xl border border-border bg-surface p-6 pb-1">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="min-h-5 text-xs font-medium">
-          {!editing && hasUnpublishedDraft && canEdit ? (
+        <div className="flex min-h-5 min-w-0 flex-1 flex-wrap items-center gap-2 text-xs font-medium">
+          {skill.forkedFrom ? (
+            skill.forkedFrom.accessible ? (
+              <Link
+                href={`/skills/${skill.forkedFrom.skillId}?v=${skill.forkedFrom.versionNumber}`}
+                className="rounded-md bg-skeleton px-2 py-1 text-foreground transition hover:bg-background"
+              >
+                Forked from {skill.forkedFrom.skillName} v
+                {skill.forkedFrom.versionNumber}.0
+              </Link>
+            ) : (
+              <span className="rounded-md bg-skeleton px-2 py-1 text-muted">
+                Forked from a private skill
+              </span>
+            )
+          ) : null}
+          {!editing && !isLatestVersion ? (
+            <span className="rounded-md bg-skeleton px-2 py-1 text-foreground">
+              Viewing version {selectedVersionNumber}.0
+            </span>
+          ) : null}
+          {!editing && isLatestVersion && showDraft ? (
             <span className="rounded-md bg-skeleton px-2 py-1 text-foreground">
               Unpublished draft — not in version history yet
             </span>
           ) : null}
         </div>
-        <VersionHistoryFloatover skillName={skill.name} versions={versions} />
+        <VersionHistoryFloatover
+          skillId={skill.id}
+          skillName={skill.name}
+          versions={versions}
+          selectedVersionId={selectedVersionId}
+          selectedVersionNumber={selectedVersionNumber}
+        />
       </div>
 
       {editing ? (
@@ -288,38 +367,67 @@ export function SkillDetailPanel({
                         Discard draft
                       </DropdownMenu.Item>
                     ) : null}
+                    <DropdownMenu.Item
+                      disabled={publishing || forking}
+                      onSelect={() => void forkAndEdit()}
+                      className="cursor-pointer rounded px-3 py-2 text-sm text-foreground outline-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-background"
+                    >
+                      Fork
+                    </DropdownMenu.Item>
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
             </div>
           </div>
         ) : (
-          <div className="flex justify-center">
-            {signedIn ? (
+          <div className="flex justify-center gap-2">
+            {canEdit && !isLatestVersion ? (
+              <Link
+                href={`/skills/${skill.id}`}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
+              >
+                View latest
+              </Link>
+            ) : null}
+            {canEdit && isLatestVersion ? (
               <button
                 type="button"
                 onClick={startEditing}
                 className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
               >
-                {hasUnpublishedDraft && canEdit
-                  ? "Continue editing"
-                  : "Edit skill"}
+                {showDraft ? "Continue editing" : "Edit skill"}
               </button>
-            ) : (
+            ) : null}
+            {canEdit ? (
+              <button
+                type="button"
+                disabled={forking}
+                onClick={() => void forkAndEdit()}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted transition hover:bg-background hover:text-foreground disabled:opacity-40"
+              >
+                {forking ? "Forking…" : "Fork"}
+              </button>
+            ) : null}
+            {!canEdit && signedIn ? (
+              <button
+                type="button"
+                disabled={forking}
+                onClick={() => void forkAndEdit()}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background disabled:opacity-40"
+              >
+                {forking ? "Forking…" : "Edit skill"}
+              </button>
+            ) : null}
+            {!canEdit && !signedIn ? (
               <Link
                 href={loginHref}
                 className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
               >
                 Edit skill
               </Link>
-            )}
+            ) : null}
           </div>
         )}
-        {editing && !canEdit ? (
-          <p className="mt-2 text-center text-xs text-muted">
-            Only the skill owner can save drafts or publish versions.
-          </p>
-        ) : null}
       </div>
     </section>
   );

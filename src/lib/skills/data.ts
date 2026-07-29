@@ -1,13 +1,14 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import slugify from "slugify";
 
 import { db } from "@/lib/db/client";
 import { skills, skillVersions } from "@/lib/db/schema";
 
-import type { Skill, SkillVersionHistoryItem } from "./types";
+import type { Skill, SkillForkOrigin, SkillVersionHistoryItem } from "./types";
 
 export type {
   Skill,
+  SkillForkOrigin,
   SkillOutputSection,
   SkillParameter,
   SkillScenario,
@@ -31,8 +32,11 @@ const skillFields = {
   id: skills.id,
   slug: skills.slug,
   ownerUserId: skills.ownerUserId,
+  forkedFromVersionId: skills.forkedFromVersionId,
   draftMarkdown: skills.draftMarkdown,
   draftUpdatedAt: skills.draftUpdatedAt,
+  versionId: skillVersions.id,
+  versionNumber: skillVersions.versionNumber,
   name: skillVersions.name,
   summary: skillVersions.summary,
   description: skillVersions.description,
@@ -48,8 +52,11 @@ type SkillFieldsRow = {
   id: string;
   slug: string;
   ownerUserId: string;
+  forkedFromVersionId: string | null;
   draftMarkdown: string | null;
   draftUpdatedAt: Date | null;
+  versionId: string;
+  versionNumber: number;
   name: string;
   summary: string;
   description: string;
@@ -61,7 +68,11 @@ type SkillFieldsRow = {
   visibility: "public" | "private";
 };
 
-function toSkill(row: SkillFieldsRow, viewerUserId?: string | null): Skill {
+function toSkill(
+  row: SkillFieldsRow,
+  viewerUserId?: string | null,
+  forkedFrom?: SkillForkOrigin | null,
+): Skill {
   const isOwner = Boolean(viewerUserId && row.ownerUserId === viewerUserId);
   return {
     id: row.id,
@@ -74,9 +85,63 @@ function toSkill(row: SkillFieldsRow, viewerUserId?: string | null): Skill {
     exampleOutput: row.exampleOutput,
     scenarios: row.scenarios,
     ownerUserId: row.ownerUserId,
+    versionId: row.versionId,
+    versionNumber: row.versionNumber,
+    forkedFrom: forkedFrom ?? null,
     draftMarkdown: isOwner ? row.draftMarkdown : null,
     draftUpdatedAt: isOwner ? row.draftUpdatedAt : null,
   };
+}
+
+async function resolveForkOrigins(
+  forkedFromVersionIds: Array<string | null | undefined>,
+  viewerUserId?: string | null,
+): Promise<Map<string, SkillForkOrigin>> {
+  const ids = [
+    ...new Set(
+      forkedFromVersionIds.filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  if (ids.length === 0) return new Map();
+
+  const origins = await db
+    .select({
+      versionId: skillVersions.id,
+      skillId: skills.id,
+      skillName: skillVersions.name,
+      versionNumber: skillVersions.versionNumber,
+      visibility: skillVersions.visibility,
+      ownerUserId: skills.ownerUserId,
+    })
+    .from(skillVersions)
+    .innerJoin(skills, eq(skills.id, skillVersions.skillId))
+    .where(inArray(skillVersions.id, ids));
+
+  return new Map(
+    origins.map((origin) => {
+      const accessible =
+        origin.visibility === "public" ||
+        Boolean(viewerUserId && origin.ownerUserId === viewerUserId);
+      return [
+        origin.versionId,
+        {
+          skillId: origin.skillId,
+          skillName: origin.skillName,
+          versionNumber: origin.versionNumber,
+          accessible,
+        } satisfies SkillForkOrigin,
+      ];
+    }),
+  );
+}
+
+async function resolveForkOrigin(
+  forkedFromVersionId: string | null,
+  viewerUserId?: string | null,
+): Promise<SkillForkOrigin | null> {
+  if (!forkedFromVersionId) return null;
+  const map = await resolveForkOrigins([forkedFromVersionId], viewerUserId);
+  return map.get(forkedFromVersionId) ?? null;
 }
 
 /**
@@ -102,20 +167,56 @@ export async function getSkills(viewerUserId?: string | null): Promise<Skill[]> 
     .where(visibleToViewer(viewerUserId))
     .orderBy(skillVersions.skillId, desc(skillVersions.versionNumber));
 
-  return rows.map((row) => toSkill(row, viewerUserId));
+  const origins = await resolveForkOrigins(
+    rows.map((row) => row.forkedFromVersionId),
+    viewerUserId,
+  );
+
+  return rows.map((row) =>
+    toSkill(
+      row,
+      viewerUserId,
+      row.forkedFromVersionId
+        ? (origins.get(row.forkedFromVersionId) ?? null)
+        : null,
+    ),
+  );
 }
 
 /**
- * A single skill by lineage UUID (preferred) or legacy slug, resolved to the
- * latest version the viewer is allowed to see.
+ * A single skill by lineage UUID (preferred) or legacy slug.
+ * Defaults to the latest version the viewer may see; pass `versionNumber`
+ * to load a specific visible snapshot.
  */
 export async function getSkill(
   idOrSlug: string,
   viewerUserId?: string | null,
+  options?: { versionNumber?: number },
 ): Promise<Skill | undefined> {
   const byId = UUID_RE.test(idOrSlug)
     ? eq(skills.id, idOrSlug)
     : eq(skills.slug, idOrSlug);
+
+  if (options?.versionNumber != null) {
+    const rows = await db
+      .select(skillFields)
+      .from(skillVersions)
+      .innerJoin(skills, eq(skills.id, skillVersions.skillId))
+      .where(
+        and(
+          byId,
+          eq(skillVersions.versionNumber, options.versionNumber),
+          visibleToViewer(viewerUserId),
+        ),
+      )
+      .limit(1);
+    if (!rows[0]) return undefined;
+    return toSkill(
+      rows[0],
+      viewerUserId,
+      await resolveForkOrigin(rows[0].forkedFromVersionId, viewerUserId),
+    );
+  }
 
   const rows = await db
     .selectDistinctOn([skillVersions.skillId], skillFields)
@@ -125,7 +226,12 @@ export async function getSkill(
     .orderBy(skillVersions.skillId, desc(skillVersions.versionNumber))
     .limit(1);
 
-  return rows[0] ? toSkill(rows[0], viewerUserId) : undefined;
+  if (!rows[0]) return undefined;
+  return toSkill(
+    rows[0],
+    viewerUserId,
+    await resolveForkOrigin(rows[0].forkedFromVersionId, viewerUserId),
+  );
 }
 
 /**
@@ -229,6 +335,71 @@ export async function createSkillFromMarkdown(input: {
     exampleOutput: { title: "", items: [] },
     scenarios: [],
     ownerUserId: input.ownerUserId,
+  };
+}
+
+/**
+ * Fork a visible skill version into a new lineage owned by the caller.
+ * Copies the snapshot into the new skill's v1 (private by default).
+ */
+export async function forkSkillFromVersion(input: {
+  sourceSkillId: string;
+  /** Defaults to the latest version the forker may see. */
+  versionNumber?: number;
+  ownerUserId: string;
+}): Promise<Skill> {
+  const source = await getSkill(input.sourceSkillId, input.ownerUserId, {
+    versionNumber: input.versionNumber,
+  });
+  if (!source) throw new Error("Skill version not found.");
+  if (!source.versionId || source.versionNumber == null) {
+    throw new Error("Skill version not found.");
+  }
+
+  const slug = await uniqueSlug(source.name);
+
+  const [skill] = await db
+    .insert(skills)
+    .values({
+      slug,
+      ownerUserId: input.ownerUserId,
+      forkedFromVersionId: source.versionId,
+    })
+    .returning({ id: skills.id });
+
+  const [version] = await db
+    .insert(skillVersions)
+    .values({
+      skillId: skill.id,
+      versionNumber: 1,
+      name: source.name,
+      summary: source.summary,
+      description: source.description,
+      usage: source.usage,
+      thumbnailUrl: source.thumbnailUrl,
+      parameters: source.parameters,
+      exampleOutput: source.exampleOutput,
+      scenarios: source.scenarios,
+      visibility: "private",
+      authorUserId: input.ownerUserId,
+    })
+    .returning({ id: skillVersions.id });
+
+  return {
+    id: skill.id,
+    name: source.name,
+    summary: source.summary,
+    description: source.description,
+    usage: source.usage,
+    thumbnailUrl: source.thumbnailUrl,
+    parameters: source.parameters,
+    exampleOutput: source.exampleOutput,
+    scenarios: source.scenarios,
+    ownerUserId: input.ownerUserId,
+    versionId: version.id,
+    versionNumber: 1,
+    draftMarkdown: null,
+    draftUpdatedAt: null,
   };
 }
 

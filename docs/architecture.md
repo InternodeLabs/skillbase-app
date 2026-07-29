@@ -41,10 +41,15 @@ skill B (owner=jen, forked_from = A.v2)
   v2 private author=jen
 ```
 
+On the detail page, **Edit skill** edits when you own the lineage. When you
+don’t, the same control forks the version you’re viewing into a new private
+skill you own, then opens it for editing. Owners also get an explicit **Fork**
+control (including from older versions) to branch a separate copy.
 ### Reads
 
 - Library / detail: latest version the viewer may see (`DISTINCT ON (skill_id)`
-  ordered by `version_number desc`).
+  ordered by `version_number desc`). Optional `?v=N` on detail loads that
+  visible version instead.
 - Visible if `visibility = 'public'` **or** `skill.owner_user_id = viewer`.
 - URL param `/skills/[id]` is the skill lineage **UUID**. Legacy slug URLs still
   resolve for older links.

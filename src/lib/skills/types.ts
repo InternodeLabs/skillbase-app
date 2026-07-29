@@ -26,9 +26,23 @@ export interface Skill {
   scenarios: SkillScenario[];
   /** Present on detail fetches used for edit gating. */
   ownerUserId?: string;
+  /** Snapshot identity for the version currently shown. */
+  versionId?: string;
+  versionNumber?: number;
+  /** Present when this skill lineage was forked from another version. */
+  forkedFrom?: SkillForkOrigin | null;
   /** Owner-only unpublished edits. Null when none. */
   draftMarkdown?: string | null;
   draftUpdatedAt?: Date | null;
+}
+
+/** Where this skill branched from, if it is a fork. */
+export interface SkillForkOrigin {
+  skillId: string;
+  skillName: string;
+  versionNumber: number;
+  /** Whether the viewer can open the source version. */
+  accessible: boolean;
 }
 
 /** One append-only snapshot in a skill's version timeline. */
