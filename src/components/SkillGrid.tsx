@@ -5,15 +5,19 @@ import { getSkills } from "@/lib/skills/data";
 
 export async function SkillGrid({
   viewerUserId,
+  query,
 }: {
   viewerUserId?: string | null;
+  query?: string;
 }) {
-  const skills = await getSkills(viewerUserId);
+  const skills = await getSkills(viewerUserId, { query });
 
   if (skills.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted">
-        No skills yet. Upload a Markdown file to get started.
+        {query
+          ? `No skills match “${query}”.`
+          : "No skills yet. Upload a Markdown file to get started."}
       </p>
     );
   }
@@ -29,12 +33,12 @@ export async function SkillGrid({
             <div className="relative">
               <SkillTilePreview skill={skill} />
               {skill.forkedFrom ? (
-                  <p className="mt-1.5 truncate text-[11px] text-muted absolute -bottom-1 right-0 py-1 px-2 bg-tile-footer rounded-tl-md">
-                    {skill.forkedFrom.accessible
-                      ? `Fork of ${skill.forkedFrom.skillName}`
-                      : "Forked skill"}
-                  </p>
-                ) : null}
+                <p className="absolute -bottom-1 right-0 mt-1.5 truncate rounded-tl-md bg-tile-footer px-2 py-1 text-[11px] text-muted">
+                  {skill.forkedFrom.accessible
+                    ? `Fork of ${skill.forkedFrom.skillName}`
+                    : "Forked skill"}
+                </p>
+              ) : null}
             </div>
             <div className="bg-tile-footer p-3">
               <h2 className="truncate text-sm font-medium text-foreground">
@@ -43,7 +47,6 @@ export async function SkillGrid({
               <p className="mt-1 line-clamp-2 text-xs text-muted">
                 {skill.summary}
               </p>
-              
             </div>
           </Link>
         </li>

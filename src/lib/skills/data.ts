@@ -158,8 +158,12 @@ function visibleToViewer(viewerUserId?: string | null) {
 /**
  * The Skill Library grid: one row per skill lineage, showing the latest version
  * the viewer is allowed to see. Skills with no visible version are omitted.
+ * Optional `query` filters by name / summary / description / usage (case-insensitive).
  */
-export async function getSkills(viewerUserId?: string | null): Promise<Skill[]> {
+export async function getSkills(
+  viewerUserId?: string | null,
+  options?: { query?: string },
+): Promise<Skill[]> {
   const rows = await db
     .selectDistinctOn([skillVersions.skillId], skillFields)
     .from(skillVersions)
@@ -172,13 +176,22 @@ export async function getSkills(viewerUserId?: string | null): Promise<Skill[]> 
     viewerUserId,
   );
 
-  return rows.map((row) =>
+  const list = rows.map((row) =>
     toSkill(
       row,
       viewerUserId,
       row.forkedFromVersionId
         ? (origins.get(row.forkedFromVersionId) ?? null)
         : null,
+    ),
+  );
+
+  const query = options?.query?.trim().toLowerCase();
+  if (!query) return list;
+
+  return list.filter((skill) =>
+    [skill.name, skill.summary, skill.description, skill.usage].some((field) =>
+      field.toLowerCase().includes(query),
     ),
   );
 }

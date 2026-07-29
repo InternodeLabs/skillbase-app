@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { Suspense } from "react";
 
 import { BrandHomeLink } from "@/components/Brand";
+import { SkillSearch } from "@/components/SkillSearch";
 import { UploadSkillButton } from "@/components/UploadSkillButton";
 import { loginStartHref } from "@/lib/auth/urls";
 import type { SessionUser } from "@/lib/auth/session";
@@ -65,16 +67,14 @@ export function AppHeader({
           <UploadOrSignIn signedIn={signedIn} signInHref={signInHref} />
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
-          <label className="relative hidden sm:block">
-            <span className="sr-only">Search skills</span>
-            <input
-              type="search"
-              disabled
-              placeholder="Search skills…"
-              className="h-9 w-56 rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed"
-            />
-          </label>
+        <div className="ml-auto flex min-w-0 items-center gap-3">
+          <Suspense
+            fallback={
+              <div className="h-9 w-full max-w-56 rounded-md border border-border bg-background sm:w-56" />
+            }
+          >
+            <SkillSearch />
+          </Suspense>
 
           {user ? (
             <div className="flex items-center gap-2">
