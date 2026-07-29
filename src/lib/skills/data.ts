@@ -636,8 +636,9 @@ export async function discardSkillDraft(input: {
 }
 
 /**
- * Soft-delete a version. Owner only. Blocked when the version has been forked
- * or when it is the last live version on the skill.
+ * Soft-delete a version. Owner only. Blocked when the version has been forked.
+ * Deleting the last live version leaves the lineage with no live versions,
+ * which drops the skill from the library (returns `redirectToVersionNumber: null`).
  */
 export async function deleteSkillVersion(input: {
   skillId: string;
@@ -685,20 +686,6 @@ export async function deleteSkillVersion(input: {
 
   if (fork) {
     throw new Error("Cannot delete a version that has been forked.");
-  }
-
-  const [liveCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(skillVersions)
-    .where(
-      and(
-        eq(skillVersions.skillId, lineage.id),
-        isNull(skillVersions.deletedAt),
-      ),
-    );
-
-  if ((liveCount?.count ?? 0) <= 1) {
-    throw new Error("Cannot delete the only remaining version.");
   }
 
   await db

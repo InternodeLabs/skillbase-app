@@ -69,6 +69,18 @@ function VersionTimeline({
 
   async function deleteVersion(versionNumber: number) {
     if (deletingVersion != null) return;
+
+    // Deleting the last live version removes the whole skill from the library.
+    const deletesWholeSkill = liveVersionCount <= 1;
+    if (
+      deletesWholeSkill &&
+      !window.confirm(
+        "Delete this skill? This removes its only version and it will no longer appear in the library.",
+      )
+    ) {
+      return;
+    }
+
     setDeletingVersion(versionNumber);
     try {
       const response = await fetch(`/api/skills/${skillId}/versions`, {
@@ -90,6 +102,13 @@ function VersionTimeline({
         (version) =>
           !version.deleted && version.versionNumber !== versionNumber,
       );
+
+      if (remainingLive.length === 0) {
+        toast.success("Skill deleted");
+        router.push("/");
+        return;
+      }
+
       const newLatest =
         remainingLive[remainingLive.length - 1]?.versionNumber ?? null;
       const redirectTo = data.redirectToVersionNumber;
@@ -124,10 +143,8 @@ function VersionTimeline({
         const next = versions[index + 1];
         const showDelta = Boolean(next?.changeSummary);
         const canDelete =
-          canEdit &&
-          !version.deleted &&
-          !version.isForked &&
-          liveVersionCount > 1;
+          canEdit && !version.deleted && !version.isForked;
+        const deletesWholeSkill = canDelete && liveVersionCount <= 1;
         const href = versionHref(
           skillId,
           version.versionNumber,
@@ -200,12 +217,12 @@ function VersionTimeline({
               {canDelete ? (
                 <button
                   type="button"
-                  aria-label={`Delete version ${version.versionNumber}`}
-                  title={
-                    version.isForked
-                      ? "Forked versions cannot be deleted"
-                      : "Delete version"
+                  aria-label={
+                    deletesWholeSkill
+                      ? "Delete skill"
+                      : `Delete version ${version.versionNumber}`
                   }
+                  title={deletesWholeSkill ? "Delete skill" : "Delete version"}
                   disabled={deletingVersion != null}
                   onClick={() => void deleteVersion(version.versionNumber)}
                   className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted transition hover:bg-background hover:text-red-600 disabled:opacity-40"

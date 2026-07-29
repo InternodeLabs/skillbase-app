@@ -152,6 +152,11 @@ body {
   margin-bottom: 0;
 }
 
+.skill-param {
+  color: #2563eb;
+  font-weight: 700;
+}
+
 .markdown-preview-tile :where(h1, h2, h3, h4) {
   font-size: 0.95rem;
   margin-top: 0.45em;

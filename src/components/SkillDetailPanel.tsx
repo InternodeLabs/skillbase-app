@@ -2,7 +2,7 @@
 
 import type { MDXEditorMethods } from "@mdxeditor/editor";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { EllipsisVertical, Share2 } from "lucide-react";
+import { EllipsisVertical, Share2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,12 +18,31 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { ForwardRefEditor } from "@/components/mdx/ForwardRefEditor";
 import { VersionHistoryFloatover } from "@/components/VersionHistoryFloatover";
 import type { VersionHistoryEntry } from "@/components/VersionHistoryFloatover";
-import { composeSkillMarkdown } from "@/lib/skills/markdown";
+import {
+  applyMarkdownParams,
+  composeSkillMarkdown,
+} from "@/lib/skills/markdown";
 import type { Skill, SkillVisibility } from "@/lib/skills/types";
 
 const AUTOSAVE_MS = 800;
 
 type DraftStatus = "idle" | "dirty" | "saving" | "saved" | "error";
+
+type SkillOwner = {
+  name: string | null;
+  image: string | null;
+  isViewer: boolean;
+};
+
+function ownerInitials(name: string): string {
+  return (
+    name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("") || "?"
+  );
+}
 
 function VisibilityChip({
   visibility,
@@ -110,6 +129,8 @@ export function SkillDetailPanel({
   loginHref,
   signedIn,
   canEdit,
+  owner = null,
+  templateParams = {},
 }: {
   skill: Skill;
   versions: VersionHistoryEntry[];
@@ -121,6 +142,10 @@ export function SkillDetailPanel({
   loginHref: string;
   signedIn: boolean;
   canEdit: boolean;
+  /** Portal-resolved skill owner for attribution. Null when unresolved. */
+  owner?: SkillOwner | null;
+  /** URL query values used to fill `{{name}}` placeholders when viewing. */
+  templateParams?: Record<string, string>;
 }) {
   const router = useRouter();
   const editorRef = useRef<MDXEditorMethods>(null);
@@ -135,9 +160,11 @@ export function SkillDetailPanel({
     ? (skill.draftMarkdown as string)
     : publishedMarkdown;
   // Owners with a draft should still see their work after reload (not the last publish).
-  const viewMarkdown = showDraft
-    ? (skill.draftMarkdown as string)
-    : publishedMarkdown;
+  // Template params apply to the read view only — edit keeps raw `{{placeholders}}`.
+  const viewMarkdown = applyMarkdownParams(
+    showDraft ? (skill.draftMarkdown as string) : publishedMarkdown,
+    templateParams,
+  );
 
   const currentVisibility: SkillVisibility = skill.visibility ?? "private";
   const [editing, setEditing] = useState(initialEditing);
@@ -147,6 +174,7 @@ export function SkillDetailPanel({
   const [publishing, setPublishing] = useState(false);
   const [updatingVisibility, setUpdatingVisibility] = useState(false);
   const [forking, setForking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [shareForAgent, setShareForAgent] = useState(false);
   const [shareLockedVersion, setShareLockedVersion] = useState(
     !isLatestVersion,
@@ -424,10 +452,105 @@ export function SkillDetailPanel({
     skill.id,
   ]);
 
+  // The version currently on screen — used to gate/label the delete action.
+  const currentVersionEntry = versions.find(
+    (version) => version.versionNumber === selectedVersionNumber,
+  );
+  const deletesWholeSkill = liveVersionCount <= 1;
+  const canDeleteCurrent =
+    canEdit &&
+    Boolean(currentVersionEntry) &&
+    !currentVersionEntry?.deleted &&
+    !currentVersionEntry?.isForked;
+
+  const deleteCurrentVersion = useCallback(async () => {
+    if (deleting) return;
+    if (
+      deletesWholeSkill &&
+      !window.confirm(
+        "Delete this skill? This removes its only version and it will no longer appear in the library.",
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/skills/${skill.id}/versions`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionNumber: selectedVersionNumber }),
+      });
+      const data = (await response.json()) as {
+        error?: string;
+        redirectToVersionNumber?: number | null;
+      };
+      if (!response.ok) {
+        throw new Error(data.error || "Could not delete version.");
+      }
+
+      const remainingLive = versions.filter(
+        (version) =>
+          !version.deleted && version.versionNumber !== selectedVersionNumber,
+      );
+      if (remainingLive.length === 0) {
+        toast.success("Skill deleted");
+        router.push("/");
+        return;
+      }
+
+      const newLatest =
+        remainingLive[remainingLive.length - 1]?.versionNumber ?? null;
+      const redirectTo = data.redirectToVersionNumber;
+      toast.success(`Version ${selectedVersionNumber}.0 deleted`);
+      if (redirectTo == null || redirectTo === newLatest) {
+        router.push(`/skills/${skill.id}`);
+      } else {
+        router.push(`/skills/${skill.id}?v=${redirectTo}`);
+      }
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not delete version.",
+      );
+      setDeleting(false);
+    }
+  }, [
+    deleting,
+    deletesWholeSkill,
+    router,
+    selectedVersionNumber,
+    skill.id,
+    versions,
+  ]);
+
   return (
     <section className="flex flex-col rounded-xl border border-border bg-surface p-6 pb-1">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex min-h-5 min-w-0 flex-1 flex-wrap items-center gap-2 text-xs font-medium">
+          {owner?.name ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-md bg-skeleton px-2 py-1 text-foreground"
+              title={
+                owner.isViewer ? "You own this skill" : `Owned by ${owner.name}`
+              }
+            >
+              {owner.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={owner.image}
+                  alt=""
+                  className="size-4 rounded-full object-cover"
+                />
+              ) : (
+                <span className="grid size-4 place-items-center rounded-full bg-background text-[0.6rem] font-semibold text-foreground">
+                  {ownerInitials(owner.name)}
+                </span>
+              )}
+              <span className="truncate">
+                {owner.isViewer ? `${owner.name} (you)` : owner.name}
+              </span>
+            </span>
+          ) : null}
           {skill.forkedFrom ? (
             skill.forkedFrom.accessible ? (
               <Link
@@ -691,6 +814,38 @@ export function SkillDetailPanel({
               >
                 Edit skill
               </Link>
+            ) : null}
+            {canDeleteCurrent ? (
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    aria-label="More actions"
+                    disabled={deleting}
+                    className="inline-flex size-9 items-center justify-center rounded-md border border-border text-foreground transition hover:bg-background disabled:opacity-40"
+                  >
+                    <EllipsisVertical className="size-4" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={6}
+                    className="z-50 min-w-44 rounded-md border border-border bg-surface p-1 shadow-md"
+                  >
+                    <DropdownMenu.Item
+                      disabled={deleting}
+                      onSelect={() => void deleteCurrentVersion()}
+                      className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm text-red-600 outline-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-background"
+                    >
+                      <Trash2 className="size-3.5" aria-hidden />
+                      {deletesWholeSkill
+                        ? "Delete skill"
+                        : `Delete version ${selectedVersionNumber}.0`}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
             ) : null}
           </div>
         )}

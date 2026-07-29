@@ -5,7 +5,10 @@ import { AppHeader } from "@/components/AppHeader";
 import { ScenarioPreview } from "@/components/ScenarioPreview";
 import { SkillDetailPanel } from "@/components/SkillDetailPanel";
 import { getSession } from "@/lib/auth/server";
+import type { Session } from "@/lib/auth/session";
+import { lookupPortalUsers } from "@/lib/auth/portal-users";
 import { getSkillVersions, lookupSkillVersion } from "@/lib/skills/data";
+import { RESERVED_SKILL_QUERY_PARAMS } from "@/lib/skills/markdown";
 import {
   parseVersionParam,
   skillSharePath,
@@ -23,6 +26,57 @@ function firstQueryValue(
   value: string | string[] | undefined,
 ): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+export interface SkillOwner {
+  name: string | null;
+  image: string | null;
+  isViewer: boolean;
+}
+
+/**
+ * Resolve the skill owner's display info via the portal directory. Uses the
+ * viewer's bearer token, so logged-out visitors won't get a name. Falls back to
+ * the session profile when the viewer is the owner.
+ */
+async function resolveOwner(
+  ownerUserId: string | undefined,
+  session: Session | null,
+  isViewer: boolean,
+): Promise<SkillOwner | null> {
+  if (!ownerUserId) return null;
+
+  let name: string | null = null;
+  let image: string | null = null;
+
+  if (session?.apiToken) {
+    const users = await lookupPortalUsers([ownerUserId], session.apiToken);
+    const owner = users.get(ownerUserId);
+    name = owner?.name ?? null;
+    image = owner?.image ?? null;
+  }
+
+  if (!name && isViewer && session?.user) {
+    name = session.user.name ?? session.user.email ?? null;
+    image = session.user.image ?? null;
+  }
+
+  if (!name) return null;
+  return { name, image, isViewer };
+}
+
+/** Non-reserved query values for `{{param}}` substitution in the skill body. */
+function templateParamsFromQuery(
+  query: Record<string, string | string[] | undefined>,
+): Record<string, string> {
+  const params: Record<string, string> = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (RESERVED_SKILL_QUERY_PARAMS.has(key)) continue;
+    const raw = firstQueryValue(value);
+    if (raw === undefined) continue;
+    params[key] = raw;
+  }
+  return params;
 }
 
 export async function generateMetadata({
@@ -56,11 +110,7 @@ export default async function SkillDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{
-    v?: string | string[];
-    edit?: string | string[];
-    code?: string | string[];
-  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getSession();
   const { id } = await params;
@@ -69,6 +119,7 @@ export default async function SkillDetailPage({
   const startInEdit = parseFlagParam(query.edit);
   const code = firstQueryValue(query.code);
   const includePrivate = matchesPrivateShareCode(code);
+  const templateParams = templateParamsFromQuery(query);
 
   const lookup = await lookupSkillVersion(id, session?.user.id, {
     versionNumber,
@@ -127,6 +178,8 @@ export default async function SkillDetailPage({
     session?.user.id && skill.ownerUserId === session.user.id,
   );
 
+  const owner = await resolveOwner(skill.ownerUserId, session, canEdit);
+
   return (
     <>
       <AppHeader
@@ -148,6 +201,8 @@ export default async function SkillDetailPage({
           loginHref={loginHref}
           signedIn={Boolean(session)}
           canEdit={canEdit}
+          owner={owner}
+          templateParams={templateParams}
         />
 
         <section className="min-h-112">

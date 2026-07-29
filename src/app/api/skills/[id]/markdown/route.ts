@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/server";
 import { getSkillVersions, lookupSkillVersion } from "@/lib/skills/data";
-import { composeSkillMarkdown } from "@/lib/skills/markdown";
+import {
+  applyMarkdownParams,
+  composeSkillMarkdown,
+} from "@/lib/skills/markdown";
 import { parseVersionParam, versionPath } from "@/lib/skills/params";
 import { matchesPrivateShareCode } from "@/lib/skills/share-access";
 
@@ -49,7 +52,15 @@ async function resolveSkillMarkdown(
         code: includePrivate ? code : undefined,
       },
     );
-    return NextResponse.redirect(new URL(location, request.url), 308);
+    const redirectUrl = new URL(location, request.url);
+    // Keep template params (e.g. email=…) across the redirect.
+    url.searchParams.forEach((value, key) => {
+      if (key === "v" || key === "raw" || key === "code") return;
+      if (!redirectUrl.searchParams.has(key)) {
+        redirectUrl.searchParams.set(key, value);
+      }
+    });
+    return NextResponse.redirect(redirectUrl, 308);
   }
 
   if (lookup.status !== "live") {
@@ -59,7 +70,10 @@ async function resolveSkillMarkdown(
     });
   }
 
-  const body = composeSkillMarkdown(lookup.skill);
+  const body = applyMarkdownParams(
+    composeSkillMarkdown(lookup.skill),
+    url.searchParams,
+  );
   return new NextResponse(body, { status: 200, headers: MARKDOWN_HEADERS });
 }
 
