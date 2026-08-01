@@ -1,7 +1,7 @@
 "use client";
 
 import { format, isToday, isYesterday } from "date-fns";
-import { History, Trash2 } from "lucide-react";
+import { History, Lock, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -206,31 +206,35 @@ function VersionTimeline({
                         <div className="flex min-w-0 flex-1 items-center gap-3 py-0 pl-0">
                           <span
                             aria-hidden
-                            className="relative z-10 ml-1.5 h-3.5 w-3.5 shrink-0 rounded-[3px] border border-muted bg-surface"
-                          />
-                          <div className="flex min-w-0 flex-1 flex-col gap-0.5 pr-2">
-                            <div className="flex min-w-0 items-baseline justify-between gap-3">
-                              <span className="text-sm font-semibold text-muted">
-                                {versionLabel(version.versionNumber, true)}
-                              </span>
-                              <time
-                                dateTime={version.createdAt}
-                                className="shrink-0 text-sm text-muted"
-                              >
-                                {versionTimeLabel(version.createdAt)}
-                              </time>
-                            </div>
-                            <span className="text-xs text-muted">
-                              {version.visibility === "public"
-                                ? "Public"
-                                : "Private"}
+                            className="relative z-10 ml-1.5 grid h-3.5 w-3.5 shrink-0 place-items-center"
+                          >
+                            {version.visibility === "private" ? (
+                              <Lock className="h-3.5 w-3.5 text-muted" />
+                            ) : (
+                              <span className="h-3.5 w-3.5 rounded-[3px] border border-muted bg-surface" />
+                            )}
+                          </span>
+                          <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3 pr-2">
+                            <span className="text-sm font-semibold text-muted">
+                              {versionLabel(version.versionNumber, true)}
                             </span>
+                            <time
+                              dateTime={version.createdAt}
+                              className="shrink-0 text-sm text-muted"
+                            >
+                              {versionTimeLabel(version.createdAt)}
+                            </time>
                           </div>
                         </div>
                       ) : (
                         <button
                           type="button"
                           aria-current={isSelected ? "true" : undefined}
+                          aria-label={
+                            version.visibility === "private"
+                              ? `${versionLabel(version.versionNumber)}, private`
+                              : versionLabel(version.versionNumber)
+                          }
                           onClick={() => {
                             router.push(href);
                           }}
@@ -238,25 +242,24 @@ function VersionTimeline({
                         >
                           <span
                             aria-hidden
-                            className="relative z-10 ml-1.5 h-3.5 w-3.5 shrink-0 rounded-[3px] bg-muted"
-                          />
-                          <div className="flex min-w-0 flex-1 flex-col gap-0.5 pr-2">
-                            <div className="flex min-w-0 items-baseline justify-between gap-3">
-                              <span className="text-sm font-semibold text-foreground">
-                                {versionLabel(version.versionNumber)}
-                              </span>
-                              <time
-                                dateTime={version.createdAt}
-                                className="shrink-0 text-sm text-muted"
-                              >
-                                {versionTimeLabel(version.createdAt)}
-                              </time>
-                            </div>
-                            <span className="text-xs text-muted">
-                              {version.visibility === "public"
-                                ? "Public"
-                                : "Private"}
+                            className="relative z-10 ml-1.5 grid h-3.5 w-3.5 shrink-0 place-items-center"
+                          >
+                            {version.visibility === "private" ? (
+                              <Lock className="h-3.5 w-3.5 text-muted" />
+                            ) : (
+                              <span className="h-3.5 w-3.5 rounded-[3px] bg-muted" />
+                            )}
+                          </span>
+                          <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3 pr-2">
+                            <span className="text-sm font-semibold text-foreground">
+                              {versionLabel(version.versionNumber)}
                             </span>
+                            <time
+                              dateTime={version.createdAt}
+                              className="shrink-0 text-sm text-muted"
+                            >
+                              {versionTimeLabel(version.createdAt)}
+                            </time>
                           </div>
                         </button>
                       )}

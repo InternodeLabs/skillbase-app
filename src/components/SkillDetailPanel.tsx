@@ -18,7 +18,7 @@ function ownerInitials(name: string): string {
   );
 }
 
-function VisibilityChip({
+function VisibilitySwitch({
   visibility,
   interactive,
   disabled,
@@ -29,29 +29,57 @@ function VisibilityChip({
   disabled?: boolean;
   onToggle?: () => void;
 }) {
-  const label = visibility === "public" ? "Public" : "Private";
-  const className =
-    "rounded-md bg-skeleton px-2 py-1 text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-40";
+  const isPublic = visibility === "public";
+  const label = isPublic ? "Public" : "Private";
 
   if (!interactive || !onToggle) {
     return (
-      <span className="rounded-md bg-skeleton px-2 py-1 text-muted">{label}</span>
+      <span className="inline-flex items-center gap-2 text-muted">
+        <span>{label}</span>
+        <span
+          aria-hidden
+          className={`relative h-5 w-9 shrink-0 rounded-md ${
+            isPublic ? "bg-accent opacity-60" : "bg-skeleton"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 size-4 rounded-sm bg-surface ${
+              isPublic ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </span>
+      </span>
     );
   }
 
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={isPublic}
+      aria-label={`Visibility: ${label}`}
       disabled={disabled}
       onClick={onToggle}
       title={
-        visibility === "public"
+        isPublic
           ? "Currently public — click to make private"
           : "Currently private — click to make public"
       }
-      className={className}
+      className="inline-flex cursor-pointer items-center gap-2 text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-40"
     >
-      {label}
+      <span>{label}</span>
+      <span
+        aria-hidden
+        className={`relative h-5 w-9 shrink-0 rounded-md transition ${
+          isPublic ? "bg-accent" : "bg-skeleton"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 size-4 rounded-sm bg-surface transition ${
+            isPublic ? "translate-x-4" : "translate-x-0"
+          }`}
+        />
+      </span>
     </button>
   );
 }
@@ -80,62 +108,64 @@ export function SkillDetailPanel() {
 
   return (
     <section className="flex flex-col rounded-xl border border-border bg-surface p-6">
-      <div className="mb-4 flex min-h-5 min-w-0 flex-wrap items-center gap-2 text-xs font-medium">
-        {owner?.name ? (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-md bg-skeleton px-2 py-1 text-foreground"
-            title={
-              owner.isViewer ? "You own this skill" : `Owned by ${owner.name}`
-            }
-          >
-            {owner.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={owner.image}
-                alt=""
-                className="size-4 rounded-full object-cover"
-              />
-            ) : (
-              <span className="grid size-4 place-items-center rounded-full bg-background text-[0.6rem] font-semibold text-foreground">
-                {ownerInitials(owner.name)}
-              </span>
-            )}
-            <span className="truncate">
-              {owner.isViewer ? `${owner.name} (you)` : owner.name}
-            </span>
-          </span>
-        ) : null}
-        {skill.forkedFrom ? (
-          skill.forkedFrom.accessible ? (
-            <Link
-              href={`/skills/${skill.forkedFrom.skillId}?v=${skill.forkedFrom.versionNumber}`}
-              className="rounded-md bg-skeleton px-2 py-1 text-foreground transition hover:bg-background"
+      <div className="mb-4 flex min-h-5 min-w-0 flex-wrap items-center justify-between gap-2 text-xs font-medium">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {owner?.name ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-md bg-skeleton px-2 py-1 text-foreground"
+              title={
+                owner.isViewer ? "You own this skill" : `Owned by ${owner.name}`
+              }
             >
-              Forked from {skill.forkedFrom.skillName} v
-              {skill.forkedFrom.versionNumber}.0
-            </Link>
-          ) : (
-            <span className="rounded-md bg-skeleton px-2 py-1 text-muted">
-              Forked from a private skill
+              {owner.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={owner.image}
+                  alt=""
+                  className="size-4 rounded-full object-cover"
+                />
+              ) : (
+                <span className="grid size-4 place-items-center rounded-full bg-background text-[0.6rem] font-semibold text-foreground">
+                  {ownerInitials(owner.name)}
+                </span>
+              )}
+              <span className="truncate">
+                {owner.isViewer ? `${owner.name} (you)` : owner.name}
+              </span>
             </span>
-          )
-        ) : null}
-        <VisibilityChip
+          ) : null}
+          {skill.forkedFrom ? (
+            skill.forkedFrom.accessible ? (
+              <Link
+                href={`/skills/${skill.forkedFrom.skillId}?v=${skill.forkedFrom.versionNumber}`}
+                className="rounded-md bg-skeleton px-2 py-1 text-foreground transition hover:bg-background"
+              >
+                Forked from {skill.forkedFrom.skillName} v
+                {skill.forkedFrom.versionNumber}.0
+              </Link>
+            ) : (
+              <span className="rounded-md bg-skeleton px-2 py-1 text-muted">
+                Forked from a private skill
+              </span>
+            )
+          ) : null}
+          {!editing && !isLatestVersion ? (
+            <span className="rounded-md bg-skeleton px-2 py-1 text-foreground">
+              Viewing version {selectedVersionNumber}.0
+            </span>
+          ) : null}
+          {!editing && isLatestVersion && showDraft ? (
+            <span className="rounded-md bg-skeleton px-2 py-1 text-foreground">
+              Unpublished draft — not in version history yet
+            </span>
+          ) : null}
+        </div>
+        <VisibilitySwitch
           visibility={currentVisibility}
           interactive={canEdit && isLatestVersion && !editing}
           disabled={updatingVisibility}
           onToggle={() => void toggleLatestVisibility()}
         />
-        {!editing && !isLatestVersion ? (
-          <span className="rounded-md bg-skeleton px-2 py-1 text-foreground">
-            Viewing version {selectedVersionNumber}.0
-          </span>
-        ) : null}
-        {!editing && isLatestVersion && showDraft ? (
-          <span className="rounded-md bg-skeleton px-2 py-1 text-foreground">
-            Unpublished draft — not in version history yet
-          </span>
-        ) : null}
       </div>
 
       {editing ? (

@@ -3,9 +3,23 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { CopyIcon, Download, EllipsisVertical, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { useSkillDetail } from "@/components/SkillDetailContext";
 import type { SkillVisibility } from "@/lib/skills/types";
+
+function buildSharePath(
+  skillId: string,
+  selectedVersionNumber: number,
+  shareForAgent: boolean,
+  shareLockedVersion: boolean,
+): string {
+  const params = new URLSearchParams();
+  if (shareLockedVersion) params.set("v", String(selectedVersionNumber));
+  if (shareForAgent) params.set("raw", "1");
+  const query = params.toString();
+  return query ? `/skills/${skillId}?${query}` : `/skills/${skillId}`;
+}
 
 function markdownFilename(name: string): string {
   const base =
@@ -103,6 +117,22 @@ export function SkillActionsPanel() {
     copyShareLink,
     deleteCurrentVersion,
   } = useSkillDetail();
+
+  const sharePath = buildSharePath(
+    skillId,
+    selectedVersionNumber,
+    shareForAgent,
+    shareLockedVersion,
+  );
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  const shareUrl = origin
+    ? new URL(sharePath, origin).toString()
+    : sharePath;
 
   function handleDownload() {
     const content = editing
@@ -222,7 +252,7 @@ export function SkillActionsPanel() {
             </div>
             <textarea
               readOnly
-              value={window.location.href}
+              value={shareUrl}
               className="mb-1 w-full bg-gray-50 resize-none rounded-md border border-border border-none outline-none"
             />
             <ShareSwitch
