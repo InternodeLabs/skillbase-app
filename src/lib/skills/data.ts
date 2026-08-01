@@ -176,16 +176,21 @@ function visibleToViewer(
  * The Skill Library grid: one row per skill lineage, showing the latest version
  * the viewer is allowed to see. Skills with no visible version are omitted.
  * Optional `query` filters by name / summary / description / usage (case-insensitive).
+ * Optional `visibility` limits to the latest matching public or private version.
  */
 export async function getSkills(
   viewerUserId?: string | null,
-  options?: { query?: string },
+  options?: { query?: string; visibility?: SkillVisibility },
 ): Promise<Skill[]> {
+  const visibilityFilter = options?.visibility
+    ? eq(skillVersions.visibility, options.visibility)
+    : undefined;
+
   const rows = await db
     .selectDistinctOn([skillVersions.skillId], skillFields)
     .from(skillVersions)
     .innerJoin(skills, eq(skills.id, skillVersions.skillId))
-    .where(visibleToViewer(viewerUserId))
+    .where(and(visibleToViewer(viewerUserId), visibilityFilter))
     .orderBy(skillVersions.skillId, desc(skillVersions.versionNumber));
 
   const origins = await resolveForkOrigins(

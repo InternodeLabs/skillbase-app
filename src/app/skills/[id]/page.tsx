@@ -128,19 +128,20 @@ export default async function SkillDetailPage({
 
   if (lookup.status === "deleted") {
     if (lookup.redirectToVersionNumber == null) notFound();
-    const liveVersions = await getSkillVersions(lookup.skillId, session?.user.id, {
-      includePrivate,
-    });
+    const liveVersions = await getSkillVersions(
+      lookup.skillId,
+      session?.user.id,
+      {
+        includePrivate,
+      },
+    );
     const latestLive =
       [...liveVersions].reverse().find((version) => !version.deleted)
         ?.versionNumber ?? lookup.redirectToVersionNumber;
     permanentRedirect(
-      versionPath(
-        lookup.skillId,
-        lookup.redirectToVersionNumber,
-        latestLive,
-        { code: includePrivate ? code : undefined },
-      ),
+      versionPath(lookup.skillId, lookup.redirectToVersionNumber, latestLive, {
+        code: includePrivate ? code : undefined,
+      }),
     );
   }
 
@@ -161,12 +162,15 @@ export default async function SkillDetailPage({
   }));
 
   const latestVersionNumber =
-    [...versions].reverse().find((version) => !version.deleted)?.versionNumber ??
+    [...versions].reverse().find((version) => !version.deleted)
+      ?.versionNumber ??
     skill.versionNumber ??
     1;
   const selectedVersionNumber = skill.versionNumber ?? latestVersionNumber;
   const isLatestVersion = selectedVersionNumber === latestVersionNumber;
-  const liveVersionCount = versions.filter((version) => !version.deleted).length;
+  const liveVersionCount = versions.filter(
+    (version) => !version.deleted,
+  ).length;
 
   const returnTo = skillSharePath(skill.id, {
     versionNumber: selectedVersionNumber,
@@ -182,13 +186,9 @@ export default async function SkillDetailPage({
 
   return (
     <>
-      <AppHeader
-        user={session?.user}
-        returnTo={returnTo}
-        showSearch={false}
-      />
+      <AppHeader user={session?.user} returnTo={returnTo} showSearch={false} />
 
-      <main className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-2">
+      <main className="mx-auto w-full max-w-4xl  gap-6 px-4 py-8 sm:px-6 lg:grid-cols-2">
         <SkillDetailPanel
           key={skill.versionId ?? `${skill.id}-${selectedVersionNumber}`}
           skill={skill}
@@ -204,10 +204,6 @@ export default async function SkillDetailPage({
           owner={owner}
           templateParams={templateParams}
         />
-
-        <section className="min-h-112">
-          <ScenarioPreview scenarios={skill.scenarios} />
-        </section>
       </main>
     </>
   );

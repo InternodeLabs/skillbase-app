@@ -35,7 +35,7 @@ export default async function LoginPage({
           <BrandLogo height={36} className="mb-4 h-9 w-auto" />
           <h1 className="text-lg font-semibold tracking-tight">Sign in</h1>
           <p className="mt-1 text-sm text-muted">
-            Use your Internode account to continue.
+            Something went wrong. Choose a provider to try again.
           </p>
         </div>
 
@@ -50,12 +50,8 @@ export default async function LoginPage({
           prefetch={false}
           className="flex h-11 w-full items-center justify-center rounded-lg bg-accent text-sm font-semibold text-accent-foreground transition hover:opacity-90"
         >
-          Continue with Internode
+          Try again
         </Link>
-
-        <p className="mt-4 text-center text-xs text-muted">
-          You&apos;ll be redirected to the central Internode sign-in.
-        </p>
       </div>
     </main>
   );

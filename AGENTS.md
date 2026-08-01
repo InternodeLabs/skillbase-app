@@ -18,9 +18,10 @@ Deeper rationale: [`docs/architecture.md`](docs/architecture.md). Human how-to: 
 - Browsing (`/`, `/skills/[id]`) is **public**. Auth gates features (e.g. edit), not pages.
 - Share URLs: `/skills/[id]` (website). Add `?raw=1` (and optional `?v=N`) to get the
   skill markdown as plain text — for agents or anyone who wants the body.
-- Sign-in CTAs go to `/authenticating?returnTo=…` (brief interstitial), which then
-  continues to `/api/auth/login?returnTo=…` (Internode PKCE start). Do **not** send
-  users to `/login` as the normal path — that page is for auth _errors_ only.
+- Sign-in CTAs go to `/authenticating?returnTo=…` (Google / Microsoft picker, then
+  a brief pause), which continues to `/api/auth/login?returnTo=…&provider=…`
+  (Internode PKCE start). Do **not** send users to `/login` as the normal path —
+  that page is for auth _errors_ only.
 - Session user id comes from the portal (`session.user.id`). Use that string as `owner_user_id` / `author_user_id`.
 
 ### Data model

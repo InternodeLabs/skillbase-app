@@ -79,7 +79,11 @@ function isMarkdownDataTransfer(dataTransfer: DataTransfer): boolean | null {
   return null;
 }
 
-export function UploadSkillButton() {
+export function UploadSkillButton({
+  label = "Upload Skill",
+}: {
+  label?: string;
+}) {
   const router = useRouter();
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -197,11 +201,12 @@ export function UploadSkillButton() {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          aria-label="Upload skill"
-          title="Upload skill"
-          className="grid h-7 w-7 place-items-center rounded-md border border-border text-foreground transition hover:bg-background"
+          aria-label={label}
+          title={label}
+          className="btn-primary"
         >
           <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+          {label}
         </button>
       </Dialog.Trigger>
 

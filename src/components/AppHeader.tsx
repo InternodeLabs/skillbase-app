@@ -17,23 +17,26 @@ function initials(user: SessionUser): string {
     .join("");
 }
 
-function UploadOrSignIn({
+export function UploadOrSignIn({
   signedIn,
   signInHref,
+  label="Add Skill",
 }: {
   signedIn: boolean;
   signInHref: string;
+  label: string;
 }) {
-  if (signedIn) return <UploadSkillButton />;
+  if (signedIn) return <UploadSkillButton label={label} />;
 
   return (
     <Link
       href={signInHref}
       aria-label="Sign in to upload a skill"
       title="Sign in to upload"
-      className="grid h-7 w-7 place-items-center rounded-md border border-border text-foreground transition hover:bg-background"
+      className="btn-primary"
     >
       <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+      {label}
     </Link>
   );
 }
@@ -50,7 +53,6 @@ export function AppHeader({
   showSearch?: boolean;
 }) {
   const signInHref = loginStartHref(returnTo ?? "/");
-  const signedIn = Boolean(user);
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-surface/80 backdrop-blur">
@@ -66,7 +68,6 @@ export function AppHeader({
               <span className="hidden sm:inline">{back.label}</span>
             </Link>
           ) : null}
-          <UploadOrSignIn signedIn={signedIn} signInHref={signInHref} />
         </div>
 
         <div className="ml-auto flex min-w-0 items-center gap-3">

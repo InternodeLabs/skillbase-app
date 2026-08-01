@@ -9,11 +9,13 @@ import {
   IS_PRODUCTION,
 } from "@/lib/auth/config";
 import { codeChallengeS256, randomToken } from "@/lib/auth/pkce";
+import { isAuthProvider } from "@/lib/auth/urls";
 
 /**
  * Begins the web PKCE login flow. Generates a code verifier + state, stashes
  * them in short-lived httpOnly cookies, then redirects the user to the portal's
- * central auth authority to sign in.
+ * central auth authority to sign in. Optional `provider` (google | microsoft)
+ * skips the portal picker and starts that IdP directly.
  */
 export async function GET(request: NextRequest) {
   const state = randomToken(16);
@@ -23,12 +25,15 @@ export async function GET(request: NextRequest) {
 
   // Preserve where the user was headed so we can return them there post-login.
   const returnTo = request.nextUrl.searchParams.get("returnTo") ?? "/";
+  const providerParam = request.nextUrl.searchParams.get("provider");
+  const provider = isAuthProvider(providerParam) ? providerParam : null;
 
   const startUrl = new URL(PORTAL_WEB_START_PATH, PORTAL_BASE_URL);
   startUrl.searchParams.set("redirect_uri", redirectUri);
   startUrl.searchParams.set("state", state);
   startUrl.searchParams.set("code_challenge", codeChallenge);
   startUrl.searchParams.set("code_challenge_method", "S256");
+  if (provider) startUrl.searchParams.set("provider", provider);
 
   const response = NextResponse.redirect(startUrl.toString());
 
