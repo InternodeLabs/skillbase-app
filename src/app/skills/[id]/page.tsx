@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 
 import { AppHeader } from "@/components/AppHeader";
-import { ScenarioPreview } from "@/components/ScenarioPreview";
+import { SkillActionsPanel } from "@/components/SkillActionsPanel";
+import { SkillDetailProvider } from "@/components/SkillDetailContext";
 import { SkillDetailPanel } from "@/components/SkillDetailPanel";
+import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
 import { getSession } from "@/lib/auth/server";
 import type { Session } from "@/lib/auth/session";
 import { lookupPortalUsers } from "@/lib/auth/portal-users";
@@ -188,23 +190,37 @@ export default async function SkillDetailPage({
     <>
       <AppHeader user={session?.user} returnTo={returnTo} showSearch={false} />
 
-      <main className="mx-auto w-full max-w-4xl  gap-6 px-4 py-8 sm:px-6 lg:grid-cols-2">
-        <SkillDetailPanel
-          key={skill.versionId ?? `${skill.id}-${selectedVersionNumber}`}
-          skill={skill}
-          versions={versionEntries}
-          selectedVersionId={skill.versionId ?? null}
-          selectedVersionNumber={selectedVersionNumber}
-          isLatestVersion={isLatestVersion}
-          liveVersionCount={liveVersionCount}
-          initialEditing={startInEdit && canEdit && isLatestVersion}
-          loginHref={loginHref}
-          signedIn={Boolean(session)}
-          canEdit={canEdit}
-          owner={owner}
-          templateParams={templateParams}
-        />
-      </main>
+      <SkillDetailProvider
+        key={skill.versionId ?? `${skill.id}-${selectedVersionNumber}`}
+        skill={skill}
+        versions={versionEntries}
+        selectedVersionNumber={selectedVersionNumber}
+        isLatestVersion={isLatestVersion}
+        liveVersionCount={liveVersionCount}
+        initialEditing={startInEdit && canEdit && isLatestVersion}
+        loginHref={loginHref}
+        signedIn={Boolean(session)}
+        canEdit={canEdit}
+        owner={owner}
+        templateParams={templateParams}
+      >
+        <main className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <SkillDetailPanel />
+          <div className="flex max-h-[calc(100vh-6rem)] flex-col gap-4 lg:sticky lg:top-22">
+            <div className="shrink-0">
+              <SkillActionsPanel />
+            </div>
+            <VersionHistoryPanel
+              skillId={skill.id}
+              versions={versionEntries}
+              selectedVersionId={skill.versionId ?? null}
+              selectedVersionNumber={selectedVersionNumber}
+              liveVersionCount={liveVersionCount}
+              canEdit={canEdit}
+            />
+          </div>
+        </main>
+      </SkillDetailProvider>
     </>
   );
 }
