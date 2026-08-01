@@ -177,7 +177,7 @@ function VersionTimeline({
       <div className="space-y-5">
         {dayGroups.map((group) => (
           <section key={group.key}>
-            <h3 className="relative z-10 mb-1 bg-surface py-1 pl-8 text-xs font-medium text-muted">
+            <h3 className="relative z-10 mb-1 bg-surface py-1 pl-6 text-xs font-medium text-muted">
               {group.label}
             </h3>
             <ol>
@@ -198,15 +198,17 @@ function VersionTimeline({
                 return (
                   <li key={version.id}>
                     <div
-                      className={`relative flex w-full items-center gap-1 rounded-md py-2.5 pr-1 pl-1 ${
-                        isSelected ? "bg-skeleton/70" : ""
+                      className={`relative flex w-full items-center gap-1 rounded-md py-2.5 pr-1 -ml-1.5 ${
+                        isSelected ? "bg-skeleton" : ""
                       } ${version.deleted ? "opacity-60" : ""}`}
                     >
                       {version.deleted ? (
                         <div className="flex min-w-0 flex-1 items-center gap-3 py-0 pl-0">
                           <span
                             aria-hidden
-                            className="relative z-10 ml-1.5 grid h-3.5 w-3.5 shrink-0 place-items-center"
+                            className={`relative z-10 ml-1.5 grid h-3.5 w-3.5 shrink-0 place-items-center ${
+                              isSelected ? "bg-skeleton" : "bg-surface"
+                            }`}
                           >
                             {version.visibility === "private" ? (
                               <Lock className="h-3.5 w-3.5 text-muted" />
@@ -242,7 +244,9 @@ function VersionTimeline({
                         >
                           <span
                             aria-hidden
-                            className="relative z-10 ml-1.5 grid h-3.5 w-3.5 shrink-0 place-items-center"
+                            className={`relative z-10 ml-1.5 grid h-3.5 w-3.5 shrink-0 place-items-center ${
+                              isSelected ? "bg-skeleton" : "bg-surface"
+                            }`}
                           >
                             {version.visibility === "private" ? (
                               <Lock className="h-3.5 w-3.5 text-muted" />
