@@ -11,6 +11,7 @@ import type { Session } from "@/lib/auth/session";
 import { loginStartHref } from "@/lib/auth/urls";
 import { getSkills } from "@/lib/skills/data";
 import type { SkillVisibility } from "@/lib/skills/types";
+import { GitForkIcon } from "lucide-react";
 
 export async function SkillGrid({
   session,
@@ -64,16 +65,14 @@ export async function SkillGrid({
             >
               <div className="relative">
                 <SkillTilePreview skill={skill} />
-                {skill.forkedFrom ? (
-                  <p className="absolute -bottom-1 right-0 mt-1.5 truncate rounded-tl-md bg-tile-footer px-2 py-1 text-[11px] text-muted">
-                    {skill.forkedFrom.accessible
-                      ? `Fork of ${skill.forkedFrom.skillName}`
-                      : "Forked skill"}
-                  </p>
-                ) : null}
               </div>
               <div className="bg-tile-footer p-3">
-                <h2 className="truncate text-sm font-medium text-foreground">
+                <h2 className="truncate text-sm font-medium text-foreground flex items-center gap-1">
+                  {skill.forkedFrom ? (
+                    skill.forkedFrom.accessible ? null : (
+                      <GitForkIcon className="size-3 text-muted" aria-hidden />
+                    )
+                  ) : null}
                   {skill.name}
                 </h2>
                 <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted">
