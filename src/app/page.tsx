@@ -56,10 +56,7 @@ export default async function HomePage({
           <SkillsFilterTabs className="mb-6" value={visibility} />
         </Suspense>
 
-        <Suspense
-          key={visibility}
-          fallback={<SkillGridSkeleton loading />}
-        >
+        <Suspense fallback={<SkillGridSkeleton loading />}>
           <SkillGrid
             session={session}
             query={query}

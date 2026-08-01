@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
   },
+  experimental: {
+    // Soft-nav back to a recently visited dynamic page (e.g. Public ↔ Private)
+    // reuses the RSC payload instead of refetching immediately.
+    staleTimes: {
+      dynamic: 30,
+    },
+  },
   async rewrites() {
     // `?raw` on a skill URL returns the markdown body (any client).
     return {

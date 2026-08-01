@@ -1,5 +1,6 @@
 "use client";
 
+import { startTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { TabUnderlineSwitch } from "@/components/TabUnderlineSwitch";
@@ -29,7 +30,9 @@ export function SkillsFilterTabs({
         if (tab === "public") params.delete("visibility");
         else params.set("visibility", tab);
         const qs = params.toString();
-        router.replace(qs ? `/?${qs}` : "/");
+        startTransition(() => {
+          router.replace(qs ? `/?${qs}` : "/");
+        });
       }}
     />
   );
