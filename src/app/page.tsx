@@ -61,7 +61,7 @@ export default async function HomePage({
           fallback={<SkillGridSkeleton loading />}
         >
           <SkillGrid
-            viewerUserId={session?.user.id}
+            session={session}
             query={query}
             visibility={visibility}
           />

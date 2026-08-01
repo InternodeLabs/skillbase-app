@@ -19,18 +19,20 @@ export function SkillSkeletonTile({ loading = false }: { loading?: boolean }) {
             loading ? "skeleton-loading" : "skeleton",
           )}
         />
-        <div
-          className={cn(
-            "h-3 w-1/2 rounded",
-            loading ? "skeleton-loading" : "skeleton",
-          )}
-        />
-         <div
-          className={cn(
-            "h-3 w-full rounded",
-            loading ? "skeleton-loading" : "skeleton",
-          )}
-        />
+        <div className="flex items-center justify-between gap-2">
+          <div
+            className={cn(
+              "h-3 w-1/3 rounded",
+              loading ? "skeleton-loading" : "skeleton",
+            )}
+          />
+          <div
+            className={cn(
+              "h-3 w-1/4 rounded",
+              loading ? "skeleton-loading" : "skeleton",
+            )}
+          />
+        </div>
       </div>
     </div>
   );

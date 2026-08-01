@@ -52,6 +52,7 @@ const skillFields = {
   exampleOutput: skillVersions.exampleOutput,
   scenarios: skillVersions.scenarios,
   visibility: skillVersions.visibility,
+  createdAt: skillVersions.createdAt,
 };
 
 type SkillFieldsRow = {
@@ -72,6 +73,7 @@ type SkillFieldsRow = {
   exampleOutput: Skill["exampleOutput"];
   scenarios: Skill["scenarios"];
   visibility: "public" | "private";
+  createdAt: Date;
 };
 
 function toSkill(
@@ -91,6 +93,7 @@ function toSkill(
     exampleOutput: row.exampleOutput,
     scenarios: row.scenarios,
     ownerUserId: row.ownerUserId,
+    updatedAt: row.createdAt,
     versionId: row.versionId,
     versionNumber: row.versionNumber,
     visibility: row.visibility,

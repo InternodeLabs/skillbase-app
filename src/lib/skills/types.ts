@@ -28,6 +28,8 @@ export interface Skill {
   scenarios: SkillScenario[];
   /** Present on detail fetches used for edit gating. */
   ownerUserId?: string;
+  /** When the currently shown version was published. */
+  updatedAt?: Date;
   /** Snapshot identity for the version currently shown. */
   versionId?: string;
   versionNumber?: number;
