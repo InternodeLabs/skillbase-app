@@ -18,7 +18,78 @@ export function parseRawParam(
 }
 
 /**
- * Detail / share URL.
+ * Pretty (fragile) skill path: `/{username}/{slug}.md`.
+ * Prefer {@link skillSharePath} for share / bookmark links — UUID never breaks
+ * if the skill is renamed or the username changes.
+ */
+export function vanitySkillPath(username: string, slug: string): string {
+  const handle = username.trim().toLowerCase();
+  const file = slug.trim().toLowerCase().replace(/\.md$/i, "");
+  return `/${handle}/${file}.md`;
+}
+
+/**
+ * In-app navigation path. Uses `/{username}/{slug}.md` when both are known;
+ * falls back to `/skills/{id}`. Share / copy links should use {@link skillSharePath}.
+ */
+export function skillBrowsePath(input: {
+  skillId: string;
+  slug?: string | null;
+  ownerUsername?: string | null;
+  versionNumber?: number;
+  latestVersionNumber?: number;
+  edit?: boolean;
+  code?: string;
+  extra?: Record<string, string | undefined>;
+}): string {
+  const params = new URLSearchParams();
+  const versionNumber = input.versionNumber;
+  const latest = input.latestVersionNumber;
+  if (
+    versionNumber != null &&
+    (latest == null || versionNumber !== latest)
+  ) {
+    params.set("v", String(versionNumber));
+  }
+  if (input.edit) params.set("edit", "1");
+  if (input.code) params.set("code", input.code);
+  if (input.extra) {
+    for (const [key, value] of Object.entries(input.extra)) {
+      if (value == null || value === "") continue;
+      if (key === "v" || key === "raw" || key === "code" || key === "edit") {
+        continue;
+      }
+      params.set(key, value);
+    }
+  }
+
+  const username = input.ownerUsername?.trim();
+  const slug = input.slug?.trim();
+  const base =
+    username && slug
+      ? vanitySkillPath(username, slug)
+      : `/skills/${input.skillId}`;
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
+}
+
+/**
+ * Extract the skill slug from a vanity file segment (`foo.md` → `foo`).
+ * Returns null when the segment is missing the `.md` suffix or empty.
+ */
+export function parseSkillFileSegment(
+  file: string | null | undefined,
+): string | null {
+  if (!file) return null;
+  const trimmed = file.trim();
+  if (!trimmed.toLowerCase().endsWith(".md")) return null;
+  const slug = trimmed.slice(0, -3).trim().toLowerCase();
+  if (!slug || slug.includes("/") || slug.includes("\\")) return null;
+  return slug;
+}
+
+/**
+ * Detail / share URL (canonical).
  * - Website: `/skills/{id}` or `/skills/{id}?v=N`
  * - Agent (markdown text): add `raw=1`
  * - Optional `code` unlocks private versions (hidden bypass).
@@ -30,6 +101,8 @@ export function skillSharePath(
     latestVersionNumber?: number;
     raw?: boolean;
     code?: string;
+    /** Extra query params (e.g. `edit`, template substitutions). */
+    extra?: Record<string, string | undefined>;
   },
 ) {
   const params = new URLSearchParams();
@@ -43,6 +116,13 @@ export function skillSharePath(
   }
   if (options?.raw) params.set("raw", "1");
   if (options?.code) params.set("code", options.code);
+  if (options?.extra) {
+    for (const [key, value] of Object.entries(options.extra)) {
+      if (value == null || value === "") continue;
+      if (key === "v" || key === "raw" || key === "code") continue;
+      params.set(key, value);
+    }
+  }
   const query = params.toString();
   return query ? `/skills/${skillId}?${query}` : `/skills/${skillId}`;
 }

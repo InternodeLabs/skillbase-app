@@ -18,6 +18,7 @@ const actionIconButtonClass =
   "inline-flex flex-1 items-center justify-center rounded-md border border-border py-2 text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-40";
 
 import { useSkillDetail } from "@/components/SkillDetailContext";
+import { skillBrowsePath } from "@/lib/skills/params";
 import { buildSkillSharePath } from "@/lib/skills/share-access";
 import type { SkillVisibility } from "@/lib/skills/types";
 
@@ -330,7 +331,11 @@ export function SkillActionsPanel() {
 
             {canEdit && !isLatestVersion ? (
               <Link
-                href={`/skills/${skillId}`}
+                href={skillBrowsePath({
+                  skillId,
+                  slug: skill.slug,
+                  ownerUsername: skill.ownerUsername,
+                })}
                 aria-label="View latest"
                 title="View latest"
                 className={actionIconButtonClass}

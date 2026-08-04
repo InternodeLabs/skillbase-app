@@ -2,7 +2,8 @@ import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import slugify from "slugify";
 
 import { db } from "@/lib/db/client";
-import { skills, skillVersions } from "@/lib/db/schema";
+import { skills, skillVersions, userProfiles } from "@/lib/db/schema";
+import { getUsernameForUser, getUsernamesByUserIds } from "@/lib/users/profile";
 
 import type {
   Skill,
@@ -80,10 +81,13 @@ function toSkill(
   row: SkillFieldsRow,
   viewerUserId?: string | null,
   forkedFrom?: SkillForkOrigin | null,
+  ownerUsername?: string | null,
 ): Skill {
   const isOwner = Boolean(viewerUserId && row.ownerUserId === viewerUserId);
   return {
     id: row.id,
+    slug: row.slug,
+    ownerUsername: ownerUsername ?? null,
     name: row.name,
     summary: row.summary,
     description: row.description,
@@ -118,6 +122,7 @@ async function resolveForkOrigins(
     .select({
       versionId: skillVersions.id,
       skillId: skills.id,
+      slug: skills.slug,
       skillName: skillVersions.name,
       versionNumber: skillVersions.versionNumber,
       visibility: skillVersions.visibility,
@@ -127,6 +132,10 @@ async function resolveForkOrigins(
     .from(skillVersions)
     .innerJoin(skills, eq(skills.id, skillVersions.skillId))
     .where(inArray(skillVersions.id, ids));
+
+  const usernames = await getUsernamesByUserIds(
+    origins.map((origin) => origin.ownerUserId),
+  );
 
   return new Map(
     origins.map((origin) => {
@@ -138,6 +147,8 @@ async function resolveForkOrigins(
         origin.versionId,
         {
           skillId: origin.skillId,
+          slug: origin.slug,
+          ownerUsername: usernames.get(origin.ownerUserId) ?? null,
           skillName: origin.skillName,
           versionNumber: origin.versionNumber,
           accessible,
@@ -208,6 +219,9 @@ export async function getSkills(
     rows.map((row) => row.forkedFromVersionId),
     viewerUserId,
   );
+  const usernames = await getUsernamesByUserIds(
+    rows.map((row) => row.ownerUserId),
+  );
 
   const list = rows.map((row) =>
     toSkill(
@@ -216,6 +230,7 @@ export async function getSkills(
       row.forkedFromVersionId
         ? (origins.get(row.forkedFromVersionId) ?? null)
         : null,
+      usernames.get(row.ownerUserId) ?? null,
     ),
   );
 
@@ -236,6 +251,8 @@ export type SkillVersionLookup =
       /** Earlier live version to permanently redirect to, if any. */
       redirectToVersionNumber: number | null;
       skillId: string;
+      slug: string;
+      ownerUsername: string | null;
     }
   | { status: "missing" };
 
@@ -260,6 +277,7 @@ export async function lookupSkillVersion(
   const [tombstone] = await db
     .select({
       skillId: skills.id,
+      slug: skills.slug,
       ownerUserId: skills.ownerUserId,
       visibility: skillVersions.visibility,
       deletedAt: skillVersions.deletedAt,
@@ -279,6 +297,9 @@ export async function lookupSkillVersion(
     Boolean(viewerUserId && tombstone.ownerUserId === viewerUserId);
   if (!canKnow) return { status: "missing" };
 
+  const ownerUsername =
+    (await getUsernameForUser(tombstone.ownerUserId)) ?? null;
+
   const [earlier] = await db
     .select({ versionNumber: skillVersions.versionNumber })
     .from(skillVersions)
@@ -297,6 +318,8 @@ export async function lookupSkillVersion(
     return {
       status: "deleted",
       skillId: tombstone.skillId,
+      slug: tombstone.slug,
+      ownerUsername,
       redirectToVersionNumber: earlier.versionNumber,
     };
   }
@@ -317,6 +340,8 @@ export async function lookupSkillVersion(
   return {
     status: "deleted",
     skillId: tombstone.skillId,
+    slug: tombstone.slug,
+    ownerUsername,
     redirectToVersionNumber: latest?.versionNumber ?? null,
   };
 }
@@ -350,10 +375,12 @@ export async function getSkill(
       )
       .limit(1);
     if (!rows[0]) return undefined;
+    const ownerUsername = await getUsernameForUser(rows[0].ownerUserId);
     return toSkill(
       rows[0],
       viewerUserId,
       await resolveForkOrigin(rows[0].forkedFromVersionId, viewerUserId),
+      ownerUsername,
     );
   }
 
@@ -366,11 +393,37 @@ export async function getSkill(
     .limit(1);
 
   if (!rows[0]) return undefined;
+  const ownerUsername = await getUsernameForUser(rows[0].ownerUserId);
   return toSkill(
     rows[0],
     viewerUserId,
     await resolveForkOrigin(rows[0].forkedFromVersionId, viewerUserId),
+    ownerUsername,
   );
+}
+
+/**
+ * Resolve a skill lineage UUID for a vanity path `/{username}/{slug}.md`.
+ * Does not check visibility — the canonical `/skills/[id]` page does that.
+ */
+export async function getSkillIdByOwnerUsernameAndSlug(
+  username: string,
+  slug: string,
+): Promise<string | null> {
+  const handle = username.trim().toLowerCase();
+  const skillSlug = slug.trim().toLowerCase();
+  if (!handle || !skillSlug) return null;
+
+  const [row] = await db
+    .select({ id: skills.id })
+    .from(skills)
+    .innerJoin(userProfiles, eq(userProfiles.userId, skills.ownerUserId))
+    .where(
+      and(eq(userProfiles.username, handle), eq(skills.slug, skillSlug)),
+    )
+    .limit(1);
+
+  return row?.id ?? null;
 }
 
 /**
@@ -457,14 +510,17 @@ function summaryFromMarkdown(markdown: string): string {
   return plain.length > 160 ? `${plain.slice(0, 157)}…` : plain;
 }
 
-async function uniqueSlug(base: string): Promise<string> {
+/** Allocate a slug unique among this owner's skills (not globally). */
+async function uniqueSlug(base: string, ownerUserId: string): Promise<string> {
   const root = slugify(base, { lower: true, strict: true }) || "skill";
   for (let attempt = 0; attempt < 50; attempt++) {
     const candidate = attempt === 0 ? root : `${root}-${attempt + 1}`;
     const existing = await db
       .select({ id: skills.id })
       .from(skills)
-      .where(eq(skills.slug, candidate))
+      .where(
+        and(eq(skills.ownerUserId, ownerUserId), eq(skills.slug, candidate)),
+      )
       .limit(1);
     if (existing.length === 0) return candidate;
   }
@@ -484,7 +540,7 @@ export async function createSkillFromMarkdown(input: {
   if (!name) throw new Error("Name is required.");
   if (!input.markdown.trim()) throw new Error("Markdown content is required.");
 
-  const slug = await uniqueSlug(name);
+  const slug = await uniqueSlug(name, input.ownerUserId);
   const summary = summaryFromMarkdown(input.markdown);
 
   const [skill] = await db
@@ -508,6 +564,8 @@ export async function createSkillFromMarkdown(input: {
 
   return {
     id: skill.id,
+    slug,
+    ownerUsername: await getUsernameForUser(input.ownerUserId),
     name,
     summary,
     description: input.markdown,
@@ -539,7 +597,7 @@ export async function forkSkillFromVersion(input: {
     throw new Error("Skill version not found.");
   }
 
-  const slug = await uniqueSlug(source.name);
+  const slug = await uniqueSlug(source.name, input.ownerUserId);
 
   const [skill] = await db
     .insert(skills)
@@ -570,6 +628,8 @@ export async function forkSkillFromVersion(input: {
 
   return {
     id: skill.id,
+    slug,
+    ownerUsername: await getUsernameForUser(input.ownerUserId),
     name: source.name,
     summary: source.summary,
     description: source.description,
@@ -824,7 +884,11 @@ export async function createSkillVersion(input: {
     : eq(skills.slug, input.skillId);
 
   const [lineage] = await db
-    .select({ id: skills.id, ownerUserId: skills.ownerUserId })
+    .select({
+      id: skills.id,
+      slug: skills.slug,
+      ownerUserId: skills.ownerUserId,
+    })
     .from(skills)
     .where(byId)
     .limit(1);
@@ -906,6 +970,8 @@ export async function createSkillVersion(input: {
 
   return {
     id: lineage.id,
+    slug: lineage.slug,
+    ownerUsername: await getUsernameForUser(lineage.ownerUserId),
     name: template.name,
     summary,
     description: markdown,

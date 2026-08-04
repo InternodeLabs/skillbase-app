@@ -35,22 +35,34 @@ export const userProfiles = pgTable("user_profile", {
  * A `skill` is the lineage container (the "repo"). A fork is just a new skill
  * that points back at the exact version it branched from. Ownership lives here;
  * per-version visibility lives on `skill_version`.
+ *
+ * Slugs are unique per owner so `/{username}/{slug}.md` never collides within
+ * one profile. Different owners may reuse the same slug.
  */
-export const skills = pgTable("skill", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  slug: text("slug").notNull().unique(),
-  ownerUserId: text("owner_user_id").notNull(),
-  // Null = original skill. Otherwise the version this skill was forked from.
-  forkedFromVersionId: uuid("forked_from_version_id").references(
-    (): AnyPgColumn => skillVersions.id,
-  ),
-  // In-progress edits. Mutated by autosave; publishing clears it and appends a version.
-  draftMarkdown: text("draft_markdown"),
-  draftUpdatedAt: timestamp("draft_updated_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const skills = pgTable(
+  "skill",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull(),
+    ownerUserId: text("owner_user_id").notNull(),
+    // Null = original skill. Otherwise the version this skill was forked from.
+    forkedFromVersionId: uuid("forked_from_version_id").references(
+      (): AnyPgColumn => skillVersions.id,
+    ),
+    // In-progress edits. Mutated by autosave; publishing clears it and appends a version.
+    draftMarkdown: text("draft_markdown"),
+    draftUpdatedAt: timestamp("draft_updated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("skill_owner_user_id_slug_idx").on(
+      table.ownerUserId,
+      table.slug,
+    ),
+  ],
+);
 
 /**
  * Append-only snapshots. Each edit/publish is a new row. Visibility is per

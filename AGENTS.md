@@ -19,10 +19,12 @@ Deeper rationale: [`docs/architecture.md`](docs/architecture.md). Human how-to: 
   onboarding entry: logged-out users see login; logged-in users without a
   username claim one; users with a username are redirected to `/{username}`.
 - Auth gates features (e.g. edit), not public profile or skill pages.
-- Share URLs: `/skills/[id]` (website). Add `?raw=1` (and optional `?v=N`) to get the
-  skill markdown as plain text — for agents or anyone who wants the body. Private
-  skills also need `?code=` (see `PRIVATE_SHARE_CODE` / Share UI) for Sync and other
-  logged-out clients.
+- Share URLs: `/skills/[id]` (website) is the never-broken canonical link used
+  in the share panel / copy actions. In-app browsing uses
+  `/{username}/{slug}.md`. Add `?raw=1` (and optional `?v=N`) to get the skill
+  markdown as plain text — for agents or anyone who wants the body. Private
+  skills also need `?code=` (see `PRIVATE_SHARE_CODE` / Share UI) for Sync and
+  other logged-out clients.
 - Sign-in CTAs go to `/authenticating?returnTo=…` (Google / Microsoft picker, then
   a brief pause), which continues to `/api/auth/login?returnTo=…&provider=…`
   (Internode PKCE start). Do **not** send users to `/login` as the normal path —

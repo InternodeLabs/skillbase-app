@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { ClaimUsernameDialog } from "@/components/ClaimUsernameDialog";
 import type { VersionHistoryEntry } from "@/components/VersionHistoryPanel";
 import { composeSkillMarkdown } from "@/lib/skills/markdown";
+import { skillBrowsePath } from "@/lib/skills/params";
 import { buildSkillSharePath } from "@/lib/skills/share-access";
 import type { Skill, SkillVisibility } from "@/lib/skills/types";
 
@@ -229,7 +230,13 @@ export function SkillDetailProvider({
 
   const startEditing = useCallback(() => {
     if (!isLatestVersion) {
-      router.push(`/skills/${skill.id}`);
+      router.push(
+        skillBrowsePath({
+          skillId: skill.id,
+          slug: skill.slug,
+          ownerUsername: skill.ownerUsername ?? username,
+        }),
+      );
       return;
     }
     const next = skill.draftMarkdown?.trim()
@@ -246,6 +253,9 @@ export function SkillDetailProvider({
     router,
     skill.draftMarkdown,
     skill.id,
+    skill.ownerUsername,
+    skill.slug,
+    username,
   ]);
 
   const performFork = useCallback(async () => {
@@ -257,7 +267,11 @@ export function SkillDetailProvider({
         body: JSON.stringify({ versionNumber: selectedVersionNumber }),
       });
       const data = (await response.json()) as {
-        skill?: { id: string };
+        skill?: {
+          id: string;
+          slug?: string;
+          ownerUsername?: string | null;
+        };
         error?: string;
         code?: string;
       };
@@ -271,14 +285,21 @@ export function SkillDetailProvider({
         throw new Error(data.error || "Could not fork skill.");
       }
       toast.success("Forked — opened your new copy.");
-      router.push(`/skills/${data.skill.id}?edit=1`);
+      router.push(
+        skillBrowsePath({
+          skillId: data.skill.id,
+          slug: data.skill.slug,
+          ownerUsername: data.skill.ownerUsername ?? username,
+          edit: true,
+        }),
+      );
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not fork skill.",
       );
       setForking(false);
     }
-  }, [router, selectedVersionNumber, skill.id]);
+  }, [router, selectedVersionNumber, skill.id, username]);
 
   const forkAndEdit = useCallback(async () => {
     if (forking) return;
@@ -496,11 +517,15 @@ export function SkillDetailProvider({
         remainingLive[remainingLive.length - 1]?.versionNumber ?? null;
       const redirectTo = data.redirectToVersionNumber;
       toast.success(`Version ${selectedVersionNumber}.0 deleted`);
-      if (redirectTo == null || redirectTo === newLatest) {
-        router.push(`/skills/${skill.id}`);
-      } else {
-        router.push(`/skills/${skill.id}?v=${redirectTo}`);
-      }
+      router.push(
+        skillBrowsePath({
+          skillId: skill.id,
+          slug: skill.slug,
+          ownerUsername: skill.ownerUsername ?? username,
+          versionNumber: redirectTo ?? newLatest ?? undefined,
+          latestVersionNumber: newLatest ?? undefined,
+        }),
+      );
       router.refresh();
     } catch (error) {
       toast.error(
@@ -514,6 +539,9 @@ export function SkillDetailProvider({
     router,
     selectedVersionNumber,
     skill.id,
+    skill.ownerUsername,
+    skill.slug,
+    username,
     versions,
   ]);
 

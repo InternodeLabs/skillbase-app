@@ -6,6 +6,7 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { useSkillDetail } from "@/components/SkillDetailContext";
 import { ForwardRefEditor } from "@/components/mdx/ForwardRefEditor";
 import { applyMarkdownParams } from "@/lib/skills/markdown";
+import { skillBrowsePath } from "@/lib/skills/params";
 import type { SkillVisibility } from "@/lib/skills/types";
 
 function ownerInitials(name: string): string {
@@ -137,7 +138,12 @@ export function SkillDetailPanel() {
           {skill.forkedFrom ? (
             skill.forkedFrom.accessible ? (
               <Link
-                href={`/skills/${skill.forkedFrom.skillId}?v=${skill.forkedFrom.versionNumber}`}
+                href={skillBrowsePath({
+                  skillId: skill.forkedFrom.skillId,
+                  slug: skill.forkedFrom.slug,
+                  ownerUsername: skill.forkedFrom.ownerUsername,
+                  versionNumber: skill.forkedFrom.versionNumber,
+                })}
                 className="rounded-md bg-skeleton px-2 py-1 text-foreground transition hover:bg-background"
               >
                 Forked from {skill.forkedFrom.skillName} v

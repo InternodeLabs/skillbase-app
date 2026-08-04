@@ -11,6 +11,7 @@ import { lookupPortalUsers } from "@/lib/auth/portal-users";
 import type { Session } from "@/lib/auth/session";
 import { loginStartHref } from "@/lib/auth/urls";
 import { getSkills } from "@/lib/skills/data";
+import { skillBrowsePath } from "@/lib/skills/params";
 import type { SkillVisibility } from "@/lib/skills/types";
 import { getUsernamesByUserIds } from "@/lib/users/profile";
 import { GitForkIcon } from "lucide-react";
@@ -85,7 +86,11 @@ export async function SkillGrid({
           <li key={skill.id}>
             <div className="group overflow-hidden rounded-xl border border-border bg-tile-footer transition hover:shadow-md">
               <Link
-                href={`/skills/${skill.id}`}
+                href={skillBrowsePath({
+                  skillId: skill.id,
+                  slug: skill.slug,
+                  ownerUsername: skill.ownerUsername ?? ownerUsername,
+                })}
                 className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
               >
                 <div className="relative">

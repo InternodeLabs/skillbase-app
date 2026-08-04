@@ -17,7 +17,7 @@ add ops we don’t need. Two tables + a self-reference are enough.
 skill                          skill_version                 user_profile
 ─────                          ─────────────                 ────────────
 id (uuid, URL id)              id (uuid)                     user_id (portal id)
-slug (unique)                  skill_id → skill              username (unique)
+slug (unique per owner)        skill_id → skill              username (unique)
 owner_user_id (portal id)      version_number (1,2,3… per skill)
 forked_from_version_id ───┐    name, summary, description, usage
 draft_markdown (wip edits)│    thumbnail_url (optional)
@@ -55,8 +55,11 @@ control (including from older versions) to branch a separate copy.
   ordered by `version_number desc`). Optional `?v=N` on detail loads that
   visible version instead.
 - Visible if `visibility = 'public'` **or** `skill.owner_user_id = viewer`.
-- URL param `/skills/[id]` is the skill lineage **UUID**. Legacy slug URLs still
-  resolve for older links.
+- URL param `/skills/[id]` is the skill lineage **UUID** (canonical share URL).
+  Legacy slug URLs still resolve for older links.
+- In-app browsing uses `/{username}/{slug}.md` (same page). Share / copy links
+  stay on `/skills/[id]` so they never break if the username or slug changes.
+  `?raw=1` on a vanity URL redirects to the UUID markdown share path.
 - **Share URLs:** `/skills/[id]` is the website. `/skills/[id]?raw=1` (optional
   `v=N`) returns the skill markdown as `text/markdown` for any client.
   Private versions also append `code=` (see `PRIVATE_SHARE_CODE`) so Skillbase Sync

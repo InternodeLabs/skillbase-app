@@ -15,9 +15,13 @@ export interface SkillScenario {
 
 export type SkillVisibility = "public" | "private";
 
-/** The shape the UI renders. `id` is the skill lineage UUID (URL param). */
+/** The shape the UI renders. `id` is the skill lineage UUID (share URL). */
 export interface Skill {
   id: string;
+  /** Stable-ish file stem for `/{username}/{slug}.md` browse URLs. */
+  slug: string;
+  /** Owner's vanity username when claimed; used for browse URLs. */
+  ownerUsername?: string | null;
   name: string;
   summary: string;
   description: string;
@@ -45,6 +49,8 @@ export interface Skill {
 /** Where this skill branched from, if it is a fork. */
 export interface SkillForkOrigin {
   skillId: string;
+  slug: string;
+  ownerUsername: string | null;
   skillName: string;
   versionNumber: number;
   /** Whether the viewer can open the source version. */

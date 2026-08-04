@@ -1,8 +1,9 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { ForwardRefEditor } from "@/components/mdx/ForwardRefEditor";
 import { ClaimUsernameDialog } from "@/components/ClaimUsernameDialog";
+import { ForwardRefEditor } from "@/components/mdx/ForwardRefEditor";
+import { skillBrowsePath } from "@/lib/skills/params";
 import { FileUp, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -175,7 +176,11 @@ export function UploadSkillButton({
         body: JSON.stringify({ name: name.trim(), markdown: content }),
       });
       const data = (await response.json()) as {
-        skill?: { id: string };
+        skill?: {
+          id: string;
+          slug?: string;
+          ownerUsername?: string | null;
+        };
         error?: string;
         code?: string;
       };
@@ -194,13 +199,19 @@ export function UploadSkillButton({
 
       setOpen(false);
       reset();
-      router.push(`/skills/${data.skill.id}`);
+      router.push(
+        skillBrowsePath({
+          skillId: data.skill.id,
+          slug: data.skill.slug,
+          ownerUsername: data.skill.ownerUsername ?? username,
+        }),
+      );
       router.refresh();
     } catch {
       setError("Upload failed. Try again.");
       setSubmitting(false);
     }
-  }, [content, name, reset, router, submitting]);
+  }, [content, name, reset, router, submitting, username]);
 
   return (
     <>

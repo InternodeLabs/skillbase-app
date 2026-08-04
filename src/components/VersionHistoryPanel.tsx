@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import type { SkillVisibility } from "@/lib/skills/types";
+import { skillBrowsePath } from "@/lib/skills/params";
 
 export type VersionHistoryEntry = {
   id: string;
@@ -65,19 +66,26 @@ function groupByDay(versions: VersionHistoryEntry[]): DayGroup[] {
   return groups;
 }
 
-function versionHref(
-  skillId: string,
-  versionNumber: number,
-  latestVersionNumber: number,
-) {
-  if (versionNumber === latestVersionNumber) {
-    return `/skills/${skillId}`;
-  }
-  return `/skills/${skillId}?v=${versionNumber}`;
+function versionHref(input: {
+  skillId: string;
+  slug?: string | null;
+  ownerUsername?: string | null;
+  versionNumber: number;
+  latestVersionNumber: number;
+}) {
+  return skillBrowsePath({
+    skillId: input.skillId,
+    slug: input.slug,
+    ownerUsername: input.ownerUsername,
+    versionNumber: input.versionNumber,
+    latestVersionNumber: input.latestVersionNumber,
+  });
 }
 
 function VersionTimeline({
   skillId,
+  slug,
+  ownerUsername,
   versions,
   selectedVersionId,
   selectedVersionNumber,
@@ -86,6 +94,8 @@ function VersionTimeline({
   canEdit,
 }: {
   skillId: string;
+  slug?: string | null;
+  ownerUsername?: string | null;
   versions: VersionHistoryEntry[];
   selectedVersionId: string | null;
   selectedVersionNumber: number;
@@ -150,11 +160,15 @@ function VersionTimeline({
       const redirectTo = data.redirectToVersionNumber;
 
       if (selectedVersionNumber === versionNumber) {
-        if (redirectTo == null || redirectTo === newLatest) {
-          router.push(`/skills/${skillId}`);
-        } else {
-          router.push(`/skills/${skillId}?v=${redirectTo}`);
-        }
+        router.push(
+          versionHref({
+            skillId,
+            slug,
+            ownerUsername,
+            versionNumber: redirectTo ?? newLatest,
+            latestVersionNumber: newLatest,
+          }),
+        );
       }
       router.refresh();
       toast.success(`Version ${versionNumber}.0 deleted`);
@@ -189,11 +203,13 @@ function VersionTimeline({
                 const canDelete =
                   canEdit && !version.deleted && !version.isForked;
                 const deletesWholeSkill = canDelete && liveVersionCount <= 1;
-                const href = versionHref(
+                const href = versionHref({
                   skillId,
-                  version.versionNumber,
+                  slug,
+                  ownerUsername,
+                  versionNumber: version.versionNumber,
                   latestVersionNumber,
-                );
+                });
 
                 return (
                   <li key={version.id}>
@@ -316,6 +332,8 @@ function VersionTimeline({
 
 export function VersionHistoryPanel({
   skillId,
+  slug,
+  ownerUsername,
   versions,
   selectedVersionId,
   selectedVersionNumber,
@@ -323,6 +341,8 @@ export function VersionHistoryPanel({
   canEdit,
 }: {
   skillId: string;
+  slug?: string | null;
+  ownerUsername?: string | null;
   versions: VersionHistoryEntry[];
   selectedVersionId: string | null;
   selectedVersionNumber: number;
@@ -343,6 +363,8 @@ export function VersionHistoryPanel({
 
       <VersionTimeline
         skillId={skillId}
+        slug={slug}
+        ownerUsername={ownerUsername}
         versions={versions}
         selectedVersionId={selectedVersionId}
         selectedVersionNumber={selectedVersionNumber}
