@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 const actionIconButtonClass =
   "inline-flex flex-1 items-center justify-center rounded-md border border-border py-2 text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-40";
@@ -42,45 +42,6 @@ function downloadMarkdownFile(filename: string, content: string) {
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
-}
-
-function ShareSwitch({
-  checked,
-  onCheckedChange,
-  title,
-  description = "",
-}: {
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  title: string;
-  description?: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onCheckedChange(!checked)}
-      className="flex w-full cursor-pointer items-center justify-between gap-3 rounded px-1 py-1.5 text-left outline-none"
-    >
-      <span>
-        <span className="block text-sm text-foreground">{title}</span>
-        <span className="mt-0.5 block text-xs text-muted">{description}</span>
-      </span>
-      <span
-        aria-hidden
-        className={`relative h-5 w-9 shrink-0 rounded-md transition ${
-          checked ? "bg-accent" : "bg-skeleton"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 size-4 rounded-sm bg-surface transition ${
-            checked ? "translate-x-4" : "translate-x-0"
-          }`}
-        />
-      </span>
-    </button>
-  );
 }
 
 export function SkillActionsPanel() {
@@ -118,13 +79,13 @@ export function SkillActionsPanel() {
     copyShareLink,
   } = useSkillDetail();
 
-  const [origin, setOrigin] = useState("");
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => "",
+  );
   const [showShareUrl, setShowShareUrl] = useState(false);
   const [previewForAgent, setPreviewForAgent] = useState(true);
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
 
   const sharePath = buildSkillSharePath({
     skillId,
