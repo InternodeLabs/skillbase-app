@@ -9,7 +9,7 @@ import {
   IS_PRODUCTION,
 } from "@/lib/auth/config";
 import { codeChallengeS256, randomToken } from "@/lib/auth/pkce";
-import { isAuthProvider } from "@/lib/auth/urls";
+import { isAuthProvider, sanitizeReturnTo } from "@/lib/auth/urls";
 
 /**
  * Begins the web PKCE login flow. Generates a code verifier + state, stashes
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   const redirectUri = getRedirectUri(request);
 
   // Preserve where the user was headed so we can return them there post-login.
-  const returnTo = request.nextUrl.searchParams.get("returnTo") ?? "/";
+  const returnTo = sanitizeReturnTo(request.nextUrl.searchParams.get("returnTo"));
   const providerParam = request.nextUrl.searchParams.get("provider");
   const provider = isAuthProvider(providerParam) ? providerParam : null;
 
@@ -48,11 +48,7 @@ export async function GET(request: NextRequest) {
   response.cookies.set(OAUTH_STATE_COOKIE, state, cookieBase);
   response.cookies.set(PKCE_VERIFIER_COOKIE, codeVerifier, cookieBase);
   // Stash the post-login destination alongside the state (safe: relative only).
-  response.cookies.set(
-    "skillbase_return_to",
-    returnTo.startsWith("/") ? returnTo : "/",
-    cookieBase,
-  );
+  response.cookies.set("skillbase_return_to", returnTo, cookieBase);
 
   return response;
 }

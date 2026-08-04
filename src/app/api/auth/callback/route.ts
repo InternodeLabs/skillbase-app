@@ -9,7 +9,9 @@ import {
   SESSION_COOKIE,
   getRedirectUri,
 } from "@/lib/auth/config";
+import { resolvePostAuthPath } from "@/lib/auth/post-login";
 import { signSession, type Session } from "@/lib/auth/session";
+import { sanitizeReturnTo } from "@/lib/auth/urls";
 
 function loginError(request: NextRequest, reason: string) {
   const url = new URL("/login", request.nextUrl.origin);
@@ -81,7 +83,11 @@ export async function GET(request: NextRequest) {
     user: payload.user,
   };
 
-  const destination = returnTo.startsWith("/") ? returnTo : "/";
+  // Prefer claim-username onboarding over the original returnTo when needed.
+  const destination = await resolvePostAuthPath(
+    payload.user.id,
+    sanitizeReturnTo(returnTo),
+  );
   const response = NextResponse.redirect(
     new URL(destination, request.nextUrl.origin).toString(),
   );

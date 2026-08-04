@@ -2,8 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { BrandLogo } from "@/components/Brand";
+import { resolvePostAuthPath } from "@/lib/auth/post-login";
 import { getSession } from "@/lib/auth/server";
-import { loginStartHref } from "@/lib/auth/urls";
+import { loginStartHref, sanitizeReturnTo } from "@/lib/auth/urls";
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_state: "Your sign-in session expired. Please try again.",
@@ -18,15 +19,18 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; returnTo?: string }>;
 }) {
-  const session = await getSession();
-  if (session) redirect("/");
-
   const { error, returnTo } = await searchParams;
+  const safeReturnTo = sanitizeReturnTo(returnTo);
+  const session = await getSession();
+  if (session?.user.id) {
+    redirect(await resolvePostAuthPath(session.user.id, safeReturnTo));
+  }
+
   const message = error
     ? (ERROR_MESSAGES[error] ?? "Sign-in failed. Please try again.")
     : null;
 
-  const loginHref = loginStartHref(returnTo);
+  const loginHref = loginStartHref(safeReturnTo);
 
   return (
     <main className="flex min-h-dvh items-center justify-center px-4">
