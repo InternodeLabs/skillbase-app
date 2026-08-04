@@ -242,8 +242,8 @@ export function SkillActionsPanel() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-2 rounded-md border border-border p-2">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2  border-b border-border pb-3">
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm text-foreground ml-1">
                 Copy a share link

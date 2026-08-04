@@ -64,10 +64,10 @@ Skillbase mirrors the Chrome extension's PKCE flow, adapted for the web:
    and receives `{ apiToken, expiresAt, user }`.
 4. The `apiToken` + user are stored in a signed, httpOnly session cookie. Use it as
    `Authorization: Bearer <apiToken>` for portal API calls.
-5. Browsing (`/` and `/skills/[id]`) is public. Auth is feature-gated — e.g. the
-   skill detail **Edit** control shows "Login required" and sends you straight to
-   `/api/auth/login?returnTo=…` (skips the `/login` interstitial; that page is for
-   auth errors).
+5. `/` is sign-in / onboarding. Public browsing is `/{username}` and
+   `/skills/[id]`. Auth is feature-gated on those pages — e.g. the skill detail
+   **Edit** control shows "Login required" and sends you to
+   `/authenticating?returnTo=…` (the `/login` page is for auth errors only).
 6. `GET|POST /api/auth/logout` clears the session and returns to `/`.
 
 ### Portal-side integration required

@@ -180,20 +180,28 @@ function visibleToViewer(
  * the viewer is allowed to see. Skills with no visible version are omitted.
  * Optional `query` filters by name / summary / description / usage (case-insensitive).
  * Optional `visibility` limits to the latest matching public or private version.
+ * Optional `ownerUserId` limits to one owner's lineages.
  */
 export async function getSkills(
   viewerUserId?: string | null,
-  options?: { query?: string; visibility?: SkillVisibility },
+  options?: {
+    query?: string;
+    visibility?: SkillVisibility;
+    ownerUserId?: string;
+  },
 ): Promise<Skill[]> {
   const visibilityFilter = options?.visibility
     ? eq(skillVersions.visibility, options.visibility)
+    : undefined;
+  const ownerFilter = options?.ownerUserId
+    ? eq(skills.ownerUserId, options.ownerUserId)
     : undefined;
 
   const rows = await db
     .selectDistinctOn([skillVersions.skillId], skillFields)
     .from(skillVersions)
     .innerJoin(skills, eq(skills.id, skillVersions.skillId))
-    .where(and(visibleToViewer(viewerUserId), visibilityFilter))
+    .where(and(visibleToViewer(viewerUserId), visibilityFilter, ownerFilter))
     .orderBy(skillVersions.skillId, desc(skillVersions.versionNumber));
 
   const origins = await resolveForkOrigins(

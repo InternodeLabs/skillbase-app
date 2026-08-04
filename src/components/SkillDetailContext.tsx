@@ -248,13 +248,7 @@ export function SkillDetailProvider({
     skill.id,
   ]);
 
-  const forkAndEdit = useCallback(async () => {
-    if (forking) return;
-    if (!username) {
-      pendingForkAfterClaim.current = true;
-      setClaimOpen(true);
-      return;
-    }
+  const performFork = useCallback(async () => {
     setForking(true);
     try {
       const response = await fetch(`/api/skills/${skill.id}/fork`, {
@@ -284,7 +278,17 @@ export function SkillDetailProvider({
       );
       setForking(false);
     }
-  }, [forking, router, selectedVersionNumber, skill.id, username]);
+  }, [router, selectedVersionNumber, skill.id]);
+
+  const forkAndEdit = useCallback(async () => {
+    if (forking) return;
+    if (!username) {
+      pendingForkAfterClaim.current = true;
+      setClaimOpen(true);
+      return;
+    }
+    await performFork();
+  }, [forking, performFork, username]);
 
   const stopEditing = useCallback(async () => {
     if (autosaveTimer.current) {
@@ -611,35 +615,7 @@ export function SkillDetailProvider({
           router.refresh();
           if (pendingForkAfterClaim.current) {
             pendingForkAfterClaim.current = false;
-            // Username state updates async; call fork with the new handle inline.
-            void (async () => {
-              setForking(true);
-              try {
-                const response = await fetch(`/api/skills/${skill.id}/fork`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    versionNumber: selectedVersionNumber,
-                  }),
-                });
-                const data = (await response.json()) as {
-                  skill?: { id: string };
-                  error?: string;
-                };
-                if (!response.ok || !data.skill?.id) {
-                  throw new Error(data.error || "Could not fork skill.");
-                }
-                toast.success("Forked — opened your new copy.");
-                router.push(`/skills/${data.skill.id}?edit=1`);
-              } catch (error) {
-                toast.error(
-                  error instanceof Error
-                    ? error.message
-                    : "Could not fork skill.",
-                );
-                setForking(false);
-              }
-            })();
+            void performFork();
           }
         }}
       />

@@ -1,73 +1,34 @@
-import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
-import { AppHeader, UploadOrSignIn } from "@/components/AppHeader";
-import { SkillGrid } from "@/components/SkillGrid";
-import { SkillGridSkeleton } from "@/components/SkillGridSkeleton";
-import { SkillsFilterTabs } from "@/components/SkillsFilterTabs";
+import { AppHeader } from "@/components/AppHeader";
+import { AuthenticatingClient } from "@/components/AuthenticatingClient";
+import { ClaimUsernamePanel } from "@/components/ClaimUsernamePanel";
 import { getSession } from "@/lib/auth/server";
-import { loginStartHref } from "@/lib/auth/urls";
-import type { SkillVisibility } from "@/lib/skills/types";
 import { getUsernameForUser } from "@/lib/users/profile";
 
-function parseVisibility(
-  raw: string | string[] | undefined,
-): SkillVisibility {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return value === "private" ? "private" : "public";
-}
-
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string | string[]; visibility?: string | string[] }>;
-}) {
+/**
+ * Home:
+ * - logged out → sign-in
+ * - logged in, no username → claim your URL
+ * - logged in with username → redirect to `/{username}`
+ */
+export default async function HomePage() {
   const session = await getSession();
-  const params = await searchParams;
-  const raw = Array.isArray(params.q) ? params.q[0] : params.q;
-  const query = raw?.trim() || undefined;
-  const visibility = parseVisibility(params.visibility);
-  const username = session?.user.id
-    ? await getUsernameForUser(session.user.id)
-    : null;
+
+  if (!session?.user.id) {
+    return <AuthenticatingClient returnTo="/" />;
+  }
+
+  const username = await getUsernameForUser(session.user.id);
+  if (username) {
+    redirect(`/${username}`);
+  }
 
   return (
     <>
-      <AppHeader user={session?.user} />
-
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="text-3xl font-bold">Skills</div>
-          <div>
-            <UploadOrSignIn
-              signedIn={Boolean(session?.user)}
-              signInHref={loginStartHref("/")}
-              label="Upload Skill"
-              username={username}
-            />
-          </div>
-        </div>
-        {query ? (
-          <p className="mb-6 text-sm text-muted">
-            Results for{" "}
-            <span className="font-medium text-foreground">“{query}”</span>
-          </p>
-        ) : null}
-
-        <Suspense
-          fallback={
-            <div className="mb-6 h-9 border-b border-border" aria-hidden />
-          }
-        >
-          <SkillsFilterTabs className="mb-6" value={visibility} />
-        </Suspense>
-
-        <Suspense fallback={<SkillGridSkeleton loading />}>
-          <SkillGrid
-            session={session}
-            query={query}
-            visibility={visibility}
-          />
-        </Suspense>
+      <AppHeader user={session.user} showSearch={false} />
+      <main className="mx-auto flex w-full max-w-7xl flex-1 items-center justify-center px-4 py-16 sm:px-6">
+        <ClaimUsernamePanel />
       </main>
     </>
   );

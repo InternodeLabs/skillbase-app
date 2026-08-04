@@ -15,7 +15,10 @@ Deeper rationale: [`docs/architecture.md`](docs/architecture.md). Human how-to: 
 ### Auth
 
 - Skillbase is an auth _consumer_ of Internode (`portal-frontend`). Do not add a local identity provider.
-- Browsing (`/`, `/skills/[id]`) is **public**. Auth gates features (e.g. edit), not pages.
+- Browsing (`/{username}`, `/skills/[id]`) is **public**. `/` is the sign-in /
+  onboarding entry: logged-out users see login; logged-in users without a
+  username claim one; users with a username are redirected to `/{username}`.
+- Auth gates features (e.g. edit), not public profile or skill pages.
 - Share URLs: `/skills/[id]` (website). Add `?raw=1` (and optional `?v=N`) to get the
   skill markdown as plain text — for agents or anyone who wants the body. Private
   skills also need `?code=` (see `PRIVATE_SHARE_CODE` / Share UI) for Sync and other
@@ -25,6 +28,7 @@ Deeper rationale: [`docs/architecture.md`](docs/architecture.md). Human how-to: 
   (Internode PKCE start). Do **not** send users to `/login` as the normal path —
   that page is for auth _errors_ only.
 - Session user id comes from the portal (`session.user.id`). Use that string as `owner_user_id` / `author_user_id`.
+- Users must claim a unique Skillbase `username` (vanity URL) in `user_profile` before create/fork. Identity still comes from the portal — Skillbase only stores the handle. Profile page: `/{username}`.
 
 ### Data model
 

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db/client";
 import { userProfiles, type UserProfileRow } from "@/lib/db/schema";
@@ -15,6 +15,20 @@ export async function getUserProfile(
   return row ?? null;
 }
 
+export async function getUserProfileByUsername(
+  username: string,
+): Promise<UserProfileRow | null> {
+  const normalized = username.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const [row] = await db
+    .select()
+    .from(userProfiles)
+    .where(eq(userProfiles.username, normalized))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function getUsernameForUser(
   userId: string,
 ): Promise<string | null> {
@@ -22,9 +36,25 @@ export async function getUsernameForUser(
   return profile?.username ?? null;
 }
 
+export async function getUsernamesByUserIds(
+  userIds: Array<string | null | undefined>,
+): Promise<Map<string, string>> {
+  const unique = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
+  if (unique.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      userId: userProfiles.userId,
+      username: userProfiles.username,
+    })
+    .from(userProfiles)
+    .where(inArray(userProfiles.userId, unique));
+
+  return new Map(rows.map((row) => [row.userId, row.username]));
+}
+
 /**
- * Claim a vanity username. First claim only — renaming comes later once
- * profile URLs are live.
+ * Claim a vanity username. First claim only — renaming comes later.
  */
 export async function claimUsername(input: {
   userId: string;

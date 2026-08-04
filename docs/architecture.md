@@ -14,10 +14,10 @@ add ops we don’t need. Two tables + a self-reference are enough.
 ## Schema
 
 ```
-skill                          skill_version
-─────                          ─────────────
-id (uuid, URL id)              id (uuid)
-slug (unique)                  skill_id → skill
+skill                          skill_version                 user_profile
+─────                          ─────────────                 ────────────
+id (uuid, URL id)              id (uuid)                     user_id (portal id)
+slug (unique)                  skill_id → skill              username (unique)
 owner_user_id (portal id)      version_number (1,2,3… per skill)
 forked_from_version_id ───┐    name, summary, description, usage
 draft_markdown (wip edits)│    thumbnail_url (optional)
@@ -28,6 +28,10 @@ created_at                └──► visibility: public | private
 
 Drafts live on `skill` and are mutated by autosave. Publishing appends a new
 `skill_version` and clears the draft.
+
+`user_profile` stores Skillbase-only fields for a portal user. A vanity
+`username` (e.g. `skillbase.club/sean`) must be claimed before create/fork.
+Profile pages live at `/{username}` and list that person’s skills.
 ```
 
 ### Example lineage
@@ -102,6 +106,9 @@ Skillbase mirrors the Chrome extension’s PKCE flow for the web:
    picks Google or Microsoft, then a brief pause continues to
    `/api/auth/login?returnTo=…&provider=…`. `/login` remains for
    callback error display only.
+5. `/` is the app entry: logged-out → sign-in UI; logged-in without a username →
+   claim URL; logged-in with a username → redirect to `/{username}`. Public
+   profiles and skill pages stay reachable without signing in.
 
 Portal allowlist must include this app’s callback origin (local `3100` and
 `https://app.skillbase.club`).
@@ -113,8 +120,9 @@ src/
   app/
     api/auth/{login,callback,logout}/route.ts
     login/page.tsx                 # error page only for happy-path UX
-    authenticating/page.tsx        # brief pause before PKCE login
-    page.tsx                       # public skill library
+    authenticating/page.tsx        # provider picker + pause before PKCE
+    page.tsx                       # login / claim username / redirect home
+    [username]/page.tsx            # public profile + that user's skills
     skills/[id]/page.tsx           # public detail; edit gated
   lib/
     auth/                          # session, PKCE, portal config

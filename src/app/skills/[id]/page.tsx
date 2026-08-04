@@ -18,6 +18,7 @@ import {
 } from "@/lib/skills/params";
 import { matchesPrivateShareCode } from "@/lib/skills/share-access";
 import { loginStartHref } from "@/lib/auth/urls";
+import { getUsernameForUser } from "@/lib/users/profile";
 
 function parseFlagParam(value: string | string[] | undefined): boolean {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -185,10 +186,18 @@ export default async function SkillDetailPage({
   );
 
   const owner = await resolveOwner(skill.ownerUserId, session, canEdit);
+  const username = session?.user.id
+    ? await getUsernameForUser(session.user.id)
+    : null;
 
   return (
     <>
-      <AppHeader user={session?.user} returnTo={returnTo} showSearch={false} />
+      <AppHeader
+        user={session?.user}
+        username={username}
+        returnTo={returnTo}
+        showSearch={false}
+      />
 
       <SkillDetailProvider
         key={skill.versionId ?? `${skill.id}-${selectedVersionNumber}`}
@@ -203,6 +212,7 @@ export default async function SkillDetailPage({
         canEdit={canEdit}
         owner={owner}
         templateParams={templateParams}
+        initialUsername={username}
       >
         <main className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <SkillDetailPanel />

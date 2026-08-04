@@ -13,9 +13,12 @@ const TABS = [
 export function SkillsFilterTabs({
   value,
   className,
+  /** Path to replace when switching tabs. Defaults to home. */
+  basePath = "/",
 }: {
   value: "public" | "private";
   className?: string;
+  basePath?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,7 +34,7 @@ export function SkillsFilterTabs({
         else params.set("visibility", tab);
         const qs = params.toString();
         startTransition(() => {
-          router.replace(qs ? `/?${qs}` : "/");
+          router.replace(qs ? `${basePath}?${qs}` : basePath);
         });
       }}
     />

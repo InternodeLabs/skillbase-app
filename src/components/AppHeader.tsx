@@ -48,16 +48,20 @@ export function UploadOrSignIn({
 
 export function AppHeader({
   user,
+  username,
   back,
   returnTo,
   showSearch = true,
 }: {
   user?: SessionUser | null;
+  /** When set, the avatar links to `/{username}`. */
+  username?: string | null;
   back?: { href: string; label: string };
   returnTo?: string;
   showSearch?: boolean;
 }) {
   const signInHref = loginStartHref(returnTo ?? "/");
+  const profileHref = username ? `/${username}` : null;
 
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-surface/80 backdrop-blur">
@@ -88,12 +92,23 @@ export function AppHeader({
 
           {user ? (
             <div className="flex items-center gap-2">
-              <span
-                title={user.email}
-                className="grid h-8 w-8 place-items-center rounded-full bg-skeleton text-xs font-semibold text-foreground"
-              >
-                {initials(user)}
-              </span>
+              {profileHref ? (
+                <Link
+                  href={profileHref}
+                  title={username ? `/${username}` : user.email}
+                  aria-label="Your profile"
+                  className="grid h-8 w-8 place-items-center rounded-full bg-skeleton text-xs font-semibold text-foreground transition hover:opacity-80"
+                >
+                  {initials(user)}
+                </Link>
+              ) : (
+                <span
+                  title={user.email}
+                  className="grid h-8 w-8 place-items-center rounded-full bg-skeleton text-xs font-semibold text-foreground"
+                >
+                  {initials(user)}
+                </span>
+              )}
               <form action="/api/auth/logout" method="post">
                 <button
                   type="submit"
