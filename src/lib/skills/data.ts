@@ -576,6 +576,7 @@ export async function createSkillFromMarkdown(input: {
     scenarios: [],
     ownerUserId: input.ownerUserId,
     visibility: "private",
+    versionNumber: 1,
   };
 }
 
