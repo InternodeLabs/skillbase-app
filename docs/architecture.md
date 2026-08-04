@@ -55,6 +55,8 @@ control (including from older versions) to branch a separate copy.
   resolve for older links.
 - **Share URLs:** `/skills/[id]` is the website. `/skills/[id]?raw=1` (optional
   `v=N`) returns the skill markdown as `text/markdown` for any client.
+  Private versions also append `code=` (see `PRIVATE_SHARE_CODE`) so Skillbase Sync
+  and other unauthenticated clients can fetch them.
 - **Template params:** placeholders like `{{email}}` in skill markdown are filled
   from matching query params (`?email=sean@email.com`). Missing keys stay as
   `{{email}}`. Reserved keys (`v`, `raw`, `code`, `edit`) are never substituted.

@@ -7,6 +7,7 @@ import { SkillsFilterTabs } from "@/components/SkillsFilterTabs";
 import { getSession } from "@/lib/auth/server";
 import { loginStartHref } from "@/lib/auth/urls";
 import type { SkillVisibility } from "@/lib/skills/types";
+import { getUsernameForUser } from "@/lib/users/profile";
 
 function parseVisibility(
   raw: string | string[] | undefined,
@@ -25,6 +26,9 @@ export default async function HomePage({
   const raw = Array.isArray(params.q) ? params.q[0] : params.q;
   const query = raw?.trim() || undefined;
   const visibility = parseVisibility(params.visibility);
+  const username = session?.user.id
+    ? await getUsernameForUser(session.user.id)
+    : null;
 
   return (
     <>
@@ -38,6 +42,7 @@ export default async function HomePage({
               signedIn={Boolean(session?.user)}
               signInHref={loginStartHref("/")}
               label="Upload Skill"
+              username={username}
             />
           </div>
         </div>

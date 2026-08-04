@@ -20,13 +20,18 @@ function initials(user: SessionUser): string {
 export function UploadOrSignIn({
   signedIn,
   signInHref,
-  label="Add Skill",
+  label = "Add Skill",
+  username = null,
 }: {
   signedIn: boolean;
   signInHref: string;
   label: string;
+  /** Claimed vanity username, if any. */
+  username?: string | null;
 }) {
-  if (signedIn) return <UploadSkillButton label={label} />;
+  if (signedIn) {
+    return <UploadSkillButton label={label} initialUsername={username} />;
+  }
 
   return (
     <Link

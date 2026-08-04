@@ -16,6 +16,22 @@ import type {
 } from "@/lib/skills/types";
 
 /**
+ * Local profile for a portal user. Vanity `username` is required before the
+ * user can create or fork skills. Identity still comes from Internode —
+ * this table only stores Skillbase-specific fields.
+ */
+export const userProfiles = pgTable("user_profile", {
+  userId: text("user_id").primaryKey(),
+  username: text("username").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
  * A `skill` is the lineage container (the "repo"). A fork is just a new skill
  * that points back at the exact version it branched from. Ownership lives here;
  * per-version visibility lives on `skill_version`.
@@ -80,5 +96,6 @@ export const skillVersions = pgTable(
   ],
 );
 
+export type UserProfileRow = typeof userProfiles.$inferSelect;
 export type SkillRow = typeof skills.$inferSelect;
 export type SkillVersionRow = typeof skillVersions.$inferSelect;

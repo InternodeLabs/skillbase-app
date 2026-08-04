@@ -1,25 +1,25 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { CopyIcon, Download, EllipsisVertical, Trash2 } from "lucide-react";
+import {
+  Download,
+  EllipsisVertical,
+  Eye,
+  EyeOff,
+  GitForkIcon,
+  Pencil,
+  Pin,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { useSkillDetail } from "@/components/SkillDetailContext";
-import type { SkillVisibility } from "@/lib/skills/types";
+const actionIconButtonClass =
+  "inline-flex flex-1 items-center justify-center rounded-md border border-border py-2 text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-40";
 
-function buildSharePath(
-  skillId: string,
-  selectedVersionNumber: number,
-  shareForAgent: boolean,
-  shareLockedVersion: boolean,
-): string {
-  const params = new URLSearchParams();
-  if (shareLockedVersion) params.set("v", String(selectedVersionNumber));
-  if (shareForAgent) params.set("raw", "1");
-  const query = params.toString();
-  return query ? `/skills/${skillId}?${query}` : `/skills/${skillId}`;
-}
+import { useSkillDetail } from "@/components/SkillDetailContext";
+import { buildSkillSharePath } from "@/lib/skills/share-access";
+import type { SkillVisibility } from "@/lib/skills/types";
 
 function markdownFilename(name: string): string {
   const base =
@@ -47,12 +47,12 @@ function ShareSwitch({
   checked,
   onCheckedChange,
   title,
-  description,
+  description = "",
 }: {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   title: string;
-  description: string;
+  description?: string;
 }) {
   return (
     <button
@@ -103,10 +103,9 @@ export function SkillActionsPanel() {
     publishing,
     forking,
     deleting,
-    shareForAgent,
-    setShareForAgent,
     shareLockedVersion,
     setShareLockedVersion,
+    currentVisibility,
     canDeleteCurrent,
     deletesWholeSkill,
     startEditing,
@@ -114,25 +113,31 @@ export function SkillActionsPanel() {
     discardDraft,
     publishVersion,
     forkAndEdit,
-    copyShareLink,
     deleteCurrentVersion,
+    copyShareLink,
   } = useSkillDetail();
 
-  const sharePath = buildSharePath(
-    skillId,
-    selectedVersionNumber,
-    shareForAgent,
-    shareLockedVersion,
-  );
   const [origin, setOrigin] = useState("");
+  const [showShareUrl, setShowShareUrl] = useState(false);
+  const [previewForAgent, setPreviewForAgent] = useState(true);
 
   useEffect(() => {
     setOrigin(window.location.origin);
   }, []);
 
-  const shareUrl = origin
-    ? new URL(sharePath, origin).toString()
-    : sharePath;
+  const sharePath = buildSkillSharePath({
+    skillId,
+    visibility: currentVisibility,
+    selectedVersionNumber,
+    shareForAgent: previewForAgent,
+    shareLockedVersion,
+  });
+  const shareUrl = origin ? new URL(sharePath, origin).toString() : sharePath;
+
+  function handleCopy(forAgent: boolean) {
+    setPreviewForAgent(forAgent);
+    void copyShareLink(forAgent);
+  }
 
   function handleDownload() {
     const content = editing
@@ -238,112 +243,171 @@ export function SkillActionsPanel() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-2 border border-border rounded-md p-2">
-            <div className=" flex items-center justify-between gap-2">
-              <div>Use this link for your agent</div>
+          <div className="flex flex-col gap-2 rounded-md border border-border p-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm text-foreground ml-1">
+                Copy a share link
+              </div>
+              <div className="flex items-center gap-0">
+                <button
+                  type="button"
+                  onClick={() => setShareLockedVersion(!shareLockedVersion)}
+                  aria-label={
+                    shareLockedVersion
+                      ? `Unpin from version ${selectedVersionNumber}.0`
+                      : `Pin to version ${selectedVersionNumber}.0`
+                  }
+                  title={
+                    shareLockedVersion
+                      ? `Unpin from version ${selectedVersionNumber}.0`
+                      : `Pin to version ${selectedVersionNumber}.0`
+                  }
+                  aria-pressed={shareLockedVersion}
+                  className={`inline-flex size-7 items-center justify-center rounded-md transition hover:bg-background ${
+                    shareLockedVersion
+                      ? "text-foreground"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  <Pin
+                    className={`size-3 ${shareLockedVersion ? "fill-current" : ""}`}
+                    aria-hidden
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowShareUrl((open) => !open)}
+                  aria-label={
+                    showShareUrl ? "Hide share link" : "Show share link"
+                  }
+                  aria-pressed={showShareUrl}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-background hover:text-foreground"
+                >
+                  {showShareUrl ? (
+                    <EyeOff className="size-3.5" aria-hidden />
+                  ) : (
+                    <Eye className="size-3.5" aria-hidden />
+                  )}
+                </button>
+              </div>
+            </div>
+            {showShareUrl ? (
+              <textarea
+                readOnly
+                value={shareUrl}
+                rows={2}
+                className="mb-1 w-full resize-none rounded-md border-none bg-gray-50 px-2 py-1.5 text-xs text-foreground outline-none"
+              />
+            ) : null}
+            <div className="flex gap-1.5">
               <button
                 type="button"
-                onClick={() => void copyShareLink()}
-                aria-label="Copy share link"
-                className="inline-flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-background hover:text-foreground"
+                onClick={() => handleCopy(false)}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground transition hover:bg-background"
               >
-                <CopyIcon className="size-3.5" aria-hidden />
+                Link to page
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCopy(true)}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground transition hover:bg-background"
+              >
+                Link to markdown
               </button>
             </div>
-            <textarea
-              readOnly
-              value={shareUrl}
-              className="mb-1 w-full bg-gray-50 resize-none rounded-md border border-border border-none outline-none"
-            />
-            <ShareSwitch
-              checked={shareForAgent}
-              onCheckedChange={setShareForAgent}
-              title="For Agent"
-              description={
-                shareForAgent ? "Yes, return markdown" : "No, opens to website"
-              }
-            />
-            <ShareSwitch
-              checked={shareLockedVersion}
-              onCheckedChange={setShareLockedVersion}
-              title="Pinned"
-              description={
-                shareLockedVersion
-                  ? `Yes, always version ${selectedVersionNumber}.0`
-                  : "No, published version"
-              }
-            />
           </div>
 
-          <button
-            type="button"
-            onClick={handleDownload}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
-          >
-            <Download className="size-3.5" aria-hidden />
-            Download
-          </button>
+          <div className="flex gap-1.5" role="group" aria-label="Skill actions">
+            <button
+              type="button"
+              onClick={handleDownload}
+              aria-label="Download"
+              title="Download"
+              className={actionIconButtonClass}
+            >
+              <Download className="size-3.5" aria-hidden />
+            </button>
 
-          {canEdit && !isLatestVersion ? (
-            <Link
-              href={`/skills/${skillId}`}
-              className="rounded-md border border-border px-4 py-2 text-center text-sm font-medium text-foreground transition hover:bg-background"
-            >
-              View latest
-            </Link>
-          ) : null}
-          {canEdit && isLatestVersion ? (
-            <button
-              type="button"
-              onClick={startEditing}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background"
-            >
-              {showDraft ? "Continue editing" : "Edit skill"}
-            </button>
-          ) : null}
-          {canEdit ? (
-            <button
-              type="button"
-              disabled={forking}
-              onClick={() => void forkAndEdit()}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted transition hover:bg-background hover:text-foreground disabled:opacity-40"
-            >
-              {forking ? "Forking…" : "Fork"}
-            </button>
-          ) : null}
-          {!canEdit && signedIn ? (
-            <button
-              type="button"
-              disabled={forking}
-              onClick={() => void forkAndEdit()}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background disabled:opacity-40"
-            >
-              {forking ? "Forking…" : "Edit skill"}
-            </button>
-          ) : null}
-          {!canEdit && !signedIn ? (
-            <Link
-              href={loginHref}
-              className="rounded-md border border-border px-4 py-2 text-center text-sm font-medium text-foreground transition hover:bg-background"
-            >
-              Edit skill
-            </Link>
-          ) : null}
-          {canDeleteCurrent ? (
-            <button
-              type="button"
-              disabled={deleting}
-              onClick={() => void deleteCurrentVersion()}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-background disabled:opacity-40"
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-              {deleting
-                ? "Deleting…"
-                : deletesWholeSkill
-                  ? "Delete skill"
-                  : `Delete version ${selectedVersionNumber}.0`}
-            </button>
-          ) : null}
+            {canEdit && !isLatestVersion ? (
+              <Link
+                href={`/skills/${skillId}`}
+                aria-label="View latest"
+                title="View latest"
+                className={actionIconButtonClass}
+              >
+                <Eye className="size-3.5" aria-hidden />
+              </Link>
+            ) : null}
+            {canEdit && isLatestVersion ? (
+              <button
+                type="button"
+                onClick={startEditing}
+                aria-label={showDraft ? "Continue editing" : "Edit skill"}
+                title={showDraft ? "Continue editing" : "Edit skill"}
+                className={actionIconButtonClass}
+              >
+                <Pencil className="size-3.5" aria-hidden />
+              </button>
+            ) : null}
+            {canEdit ? (
+              <button
+                type="button"
+                disabled={forking}
+                onClick={() => void forkAndEdit()}
+                aria-label={forking ? "Forking…" : "Fork"}
+                title={forking ? "Forking…" : "Fork"}
+                className={`${actionIconButtonClass} text-muted hover:text-foreground`}
+              >
+                <GitForkIcon className="size-3.5" aria-hidden />
+              </button>
+            ) : null}
+            {!canEdit && signedIn ? (
+              <button
+                type="button"
+                disabled={forking}
+                onClick={() => void forkAndEdit()}
+                aria-label={forking ? "Forking…" : "Edit skill"}
+                title={forking ? "Forking…" : "Edit skill"}
+                className={actionIconButtonClass}
+              >
+                <Pencil className="size-3.5" aria-hidden />
+              </button>
+            ) : null}
+            {!canEdit && !signedIn ? (
+              <Link
+                href={loginHref}
+                aria-label="Edit skill"
+                title="Edit skill"
+                className={actionIconButtonClass}
+              >
+                <Pencil className="size-3.5" aria-hidden />
+              </Link>
+            ) : null}
+            {canDeleteCurrent ? (
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void deleteCurrentVersion()}
+                aria-label={
+                  deleting
+                    ? "Deleting…"
+                    : deletesWholeSkill
+                      ? "Delete skill"
+                      : `Delete version ${selectedVersionNumber}.0`
+                }
+                title={
+                  deleting
+                    ? "Deleting…"
+                    : deletesWholeSkill
+                      ? "Delete skill"
+                      : `Delete version ${selectedVersionNumber}.0`
+                }
+                className={`${actionIconButtonClass} text-red-600`}
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
     </section>

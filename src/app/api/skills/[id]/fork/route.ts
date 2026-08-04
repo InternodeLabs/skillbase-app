@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/server";
 import { forkSkillFromVersion } from "@/lib/skills/data";
+import { requireUsername } from "@/lib/users/profile";
 
 export async function POST(
   request: Request,
@@ -10,6 +11,27 @@ export async function POST(
   const session = await getSession();
   if (!session?.user.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    await requireUsername(session.user.id);
+  } catch (error) {
+    const code =
+      error instanceof Error &&
+      "code" in error &&
+      (error as { code?: string }).code === "USERNAME_REQUIRED"
+        ? "USERNAME_REQUIRED"
+        : undefined;
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Choose a username before adding a skill.",
+        code,
+      },
+      { status: 403 },
+    );
   }
 
   const { id } = await context.params;

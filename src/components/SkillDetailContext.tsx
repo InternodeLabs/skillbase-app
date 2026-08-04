@@ -15,8 +15,10 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { ClaimUsernameDialog } from "@/components/ClaimUsernameDialog";
 import type { VersionHistoryEntry } from "@/components/VersionHistoryPanel";
 import { composeSkillMarkdown } from "@/lib/skills/markdown";
+import { buildSkillSharePath } from "@/lib/skills/share-access";
 import type { Skill, SkillVisibility } from "@/lib/skills/types";
 
 const AUTOSAVE_MS = 800;
@@ -60,8 +62,6 @@ type SkillDetailContextValue = {
   updatingVisibility: boolean;
   forking: boolean;
   deleting: boolean;
-  shareForAgent: boolean;
-  setShareForAgent: (value: boolean) => void;
   shareLockedVersion: boolean;
   setShareLockedVersion: (value: boolean) => void;
   currentVisibility: SkillVisibility;
@@ -74,7 +74,7 @@ type SkillDetailContextValue = {
   publishVersion: () => Promise<void>;
   forkAndEdit: () => Promise<void>;
   toggleLatestVisibility: () => Promise<void>;
-  copyShareLink: () => Promise<void>;
+  copyShareLink: (forAgent: boolean) => Promise<void>;
   deleteCurrentVersion: () => Promise<void>;
 };
 
@@ -100,6 +100,7 @@ export function SkillDetailProvider({
   canEdit,
   owner = null,
   templateParams = {},
+  initialUsername = null,
   children,
 }: {
   skill: Skill;
@@ -113,12 +114,17 @@ export function SkillDetailProvider({
   canEdit: boolean;
   owner?: SkillOwner | null;
   templateParams?: Record<string, string>;
+  /** Null until the signed-in user claims a vanity URL. */
+  initialUsername?: string | null;
   children: ReactNode;
 }) {
   const router = useRouter();
   const editorRef = useRef<MDXEditorMethods>(null);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestDraftRef = useRef("");
+  const [username, setUsername] = useState<string | null>(initialUsername);
+  const [claimOpen, setClaimOpen] = useState(false);
+  const pendingForkAfterClaim = useRef(false);
 
   const publishedMarkdown = useMemo(() => composeSkillMarkdown(skill), [skill]);
   const hasUnpublishedDraft = Boolean(skill.draftMarkdown?.trim());
@@ -139,7 +145,6 @@ export function SkillDetailProvider({
   const [updatingVisibility, setUpdatingVisibility] = useState(false);
   const [forking, setForking] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [shareForAgent, setShareForAgent] = useState(false);
   const [shareLockedVersion, setShareLockedVersion] = useState(
     !isLatestVersion,
   );
@@ -245,6 +250,11 @@ export function SkillDetailProvider({
 
   const forkAndEdit = useCallback(async () => {
     if (forking) return;
+    if (!username) {
+      pendingForkAfterClaim.current = true;
+      setClaimOpen(true);
+      return;
+    }
     setForking(true);
     try {
       const response = await fetch(`/api/skills/${skill.id}/fork`, {
@@ -255,8 +265,15 @@ export function SkillDetailProvider({
       const data = (await response.json()) as {
         skill?: { id: string };
         error?: string;
+        code?: string;
       };
       if (!response.ok || !data.skill?.id) {
+        if (data.code === "USERNAME_REQUIRED") {
+          pendingForkAfterClaim.current = true;
+          setClaimOpen(true);
+          setForking(false);
+          return;
+        }
         throw new Error(data.error || "Could not fork skill.");
       }
       toast.success("Forked — opened your new copy.");
@@ -267,7 +284,7 @@ export function SkillDetailProvider({
       );
       setForking(false);
     }
-  }, [forking, router, selectedVersionNumber, skill.id]);
+  }, [forking, router, selectedVersionNumber, skill.id, username]);
 
   const stopEditing = useCallback(async () => {
     if (autosaveTimer.current) {
@@ -391,32 +408,40 @@ export function SkillDetailProvider({
           ? "Draft save failed"
           : null;
 
-  const copyShareLink = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (shareLockedVersion) params.set("v", String(selectedVersionNumber));
-    if (shareForAgent) params.set("raw", "1");
-    const query = params.toString();
-    const path = query
-      ? `/skills/${skill.id}?${query}`
-      : `/skills/${skill.id}`;
-    const url =
-      typeof window === "undefined"
-        ? path
-        : new URL(path, window.location.origin).toString();
-    try {
-      await navigator.clipboard.writeText(url);
-      const versionLabel = shareLockedVersion
-        ? `version ${selectedVersionNumber}.0`
-        : "latest version";
-      toast.success(
-        shareForAgent
-          ? `Copied agent link (${versionLabel}).`
-          : `Copied link (${versionLabel}).`,
-      );
-    } catch {
-      toast.error("Could not copy link.");
-    }
-  }, [selectedVersionNumber, shareForAgent, shareLockedVersion, skill.id]);
+  const copyShareLink = useCallback(
+    async (forAgent: boolean) => {
+      const path = buildSkillSharePath({
+        skillId: skill.id,
+        visibility: currentVisibility,
+        selectedVersionNumber,
+        shareForAgent: forAgent,
+        shareLockedVersion,
+      });
+      const url =
+        typeof window === "undefined"
+          ? path
+          : new URL(path, window.location.origin).toString();
+      try {
+        await navigator.clipboard.writeText(url);
+        const versionLabel = shareLockedVersion
+          ? `version ${selectedVersionNumber}.0`
+          : "latest version";
+        toast.success(
+          forAgent
+            ? `Copied markdown link (${versionLabel}).`
+            : `Copied page link (${versionLabel}).`,
+        );
+      } catch {
+        toast.error("Could not copy link.");
+      }
+    },
+    [
+      currentVisibility,
+      selectedVersionNumber,
+      shareLockedVersion,
+      skill.id,
+    ],
+  );
 
   const currentVersionEntry = versions.find(
     (version) => version.versionNumber === selectedVersionNumber,
@@ -518,8 +543,6 @@ export function SkillDetailProvider({
       updatingVisibility,
       forking,
       deleting,
-      shareForAgent,
-      setShareForAgent,
       shareLockedVersion,
       setShareLockedVersion,
       currentVisibility,
@@ -559,7 +582,6 @@ export function SkillDetailProvider({
       updatingVisibility,
       forking,
       deleting,
-      shareForAgent,
       shareLockedVersion,
       currentVisibility,
       canDeleteCurrent,
@@ -578,6 +600,49 @@ export function SkillDetailProvider({
   return (
     <SkillDetailContext.Provider value={value}>
       {children}
+      <ClaimUsernameDialog
+        open={claimOpen}
+        onOpenChange={(open) => {
+          setClaimOpen(open);
+          if (!open) pendingForkAfterClaim.current = false;
+        }}
+        onClaimed={(next) => {
+          setUsername(next);
+          router.refresh();
+          if (pendingForkAfterClaim.current) {
+            pendingForkAfterClaim.current = false;
+            // Username state updates async; call fork with the new handle inline.
+            void (async () => {
+              setForking(true);
+              try {
+                const response = await fetch(`/api/skills/${skill.id}/fork`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    versionNumber: selectedVersionNumber,
+                  }),
+                });
+                const data = (await response.json()) as {
+                  skill?: { id: string };
+                  error?: string;
+                };
+                if (!response.ok || !data.skill?.id) {
+                  throw new Error(data.error || "Could not fork skill.");
+                }
+                toast.success("Forked — opened your new copy.");
+                router.push(`/skills/${data.skill.id}?edit=1`);
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : "Could not fork skill.",
+                );
+                setForking(false);
+              }
+            })();
+          }
+        }}
+      />
     </SkillDetailContext.Provider>
   );
 }
