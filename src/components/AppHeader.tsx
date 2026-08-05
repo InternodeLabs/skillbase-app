@@ -52,6 +52,8 @@ export function AppHeader({
   back,
   returnTo,
   showSearch = true,
+  showUpload = false,
+  showSignOut = true,
 }: {
   user?: SessionUser | null;
   /** When set, the avatar links to `/{username}`. */
@@ -59,6 +61,10 @@ export function AppHeader({
   back?: { href: string; label: string };
   returnTo?: string;
   showSearch?: boolean;
+  /** Show a Create skill control next to search (signed-in only). */
+  showUpload?: boolean;
+  /** Hide when Sign out lives elsewhere (e.g. profile sidebar). */
+  showSignOut?: boolean;
 }) {
   const signInHref = loginStartHref(returnTo ?? "/");
   const profileHref = username ? `/${username}` : null;
@@ -90,6 +96,15 @@ export function AppHeader({
             </Suspense>
           ) : null}
 
+          {user && showUpload ? (
+            <UploadOrSignIn
+              signedIn
+              signInHref={signInHref}
+              label="Create skill"
+              username={username}
+            />
+          ) : null}
+
           {user ? (
             <div className="flex items-center gap-2">
               {profileHref ? (
@@ -109,14 +124,16 @@ export function AppHeader({
                   {initials(user)}
                 </span>
               )}
-              <form action="/api/auth/logout" method="post">
-                <button
-                  type="submit"
-                  className="rounded-md border border-border px-2.5 py-1.5 text-sm font-medium text-foreground transition hover:bg-background"
-                >
-                  Sign out
-                </button>
-              </form>
+              {showSignOut ? (
+                <form action="/api/auth/logout" method="post">
+                  <button
+                    type="submit"
+                    className="rounded-md border border-border px-2.5 py-1.5 text-sm font-medium text-foreground transition hover:bg-background"
+                  >
+                    Sign out
+                  </button>
+                </form>
+              ) : null}
             </div>
           ) : (
             <Link

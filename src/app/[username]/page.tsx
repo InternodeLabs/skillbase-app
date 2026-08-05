@@ -2,17 +2,38 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { AppHeader, UploadOrSignIn } from "@/components/AppHeader";
+import { AppHeader } from "@/components/AppHeader";
 import { SkillGrid } from "@/components/SkillGrid";
 import { SkillGridSkeleton } from "@/components/SkillGridSkeleton";
 import { SkillsFilterTabs } from "@/components/SkillsFilterTabs";
+import { UploadSkillButton } from "@/components/UploadSkillButton";
 import { lookupPortalUsers } from "@/lib/auth/portal-users";
 import { getSession } from "@/lib/auth/server";
 import type { Session } from "@/lib/auth/session";
-import { loginStartHref } from "@/lib/auth/urls";
+import { getSkills } from "@/lib/skills/data";
 import type { SkillVisibility } from "@/lib/skills/types";
 import { getUserProfileByUsername, getUsernameForUser } from "@/lib/users/profile";
 import { validateUsername } from "@/lib/users/username";
+
+const TAB_COPY: Record<
+  SkillVisibility,
+  { title: string; description: string; emptyOwner: string; emptyVisitor: string }
+> = {
+  public: {
+    title: "Public",
+    description:
+      "Skills shared publicly. Anyone who visits this page can see these.",
+    emptyOwner:
+      "No public skills yet. Upload your first .md file to share it with others.",
+    emptyVisitor: "No public skills yet.",
+  },
+  private: {
+    title: "Private",
+    description: "Skills only you can see. Share them privately when you’re ready.",
+    emptyOwner: "No private skills yet. Upload a Markdown file to get started.",
+    emptyVisitor: "No private skills yet.",
+  },
+};
 
 function parseVisibility(
   raw: string | string[] | undefined,
@@ -109,6 +130,12 @@ export default async function UserProfilePage({
   const displayName = name ?? profile.username;
   const avatarLabel = initials(displayName);
   const profilePath = `/${profile.username}`;
+  const tab = TAB_COPY[visibility];
+
+  const ownedSkills = isViewer
+    ? await getSkills(session?.user.id, { ownerUserId: profile.userId })
+    : [];
+  const hasOwnedSkills = ownedSkills.length > 0;
 
   return (
     <>
@@ -116,81 +143,105 @@ export default async function UserProfilePage({
         user={session?.user}
         username={viewerUsername}
         returnTo={profilePath}
+        showUpload={isViewer}
+        showSignOut={!isViewer}
       />
 
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
-        <section className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:min-h-[calc(100dvh-3.5rem)] md:flex-row">
+        <aside className="flex w-full shrink-0 flex-col border-b border-border px-4 py-6 sm:px-6 md:w-[280px] md:border-b-0 md:border-r lg:w-[320px]">
+          <div className="flex min-w-0 items-center gap-3">
             {image ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={image}
                 alt=""
-                className="h-16 w-16 rounded-full object-cover bg-skeleton"
+                className="h-10 w-10 rounded-full object-cover bg-skeleton"
               />
             ) : (
               <span
                 aria-hidden
-                className="grid h-16 w-16 place-items-center rounded-full bg-skeleton text-lg font-semibold text-foreground"
+                className="grid h-10 w-10 place-items-center rounded-full bg-skeleton text-sm font-semibold text-foreground"
               >
                 {avatarLabel}
               </span>
             )}
             <div className="min-w-0">
-              <h1 className="truncate text-3xl font-bold tracking-tight">
-                {displayName}
-              </h1>
-              <p className="mt-1 text-sm text-muted">
-                skillbase.club/{profile.username}
-                {isViewer ? " · This is you" : null}
+              <p className="truncate text-sm font-medium tracking-tight text-foreground">
+                @{profile.username}
               </p>
+              {name ? (
+                <p className="truncate text-sm text-muted">{name}</p>
+              ) : null}
             </div>
           </div>
 
-          {isViewer ? (
-            <UploadOrSignIn
-              signedIn
-              signInHref={loginStartHref(profilePath)}
-              label="Upload Skill"
-              username={profile.username}
-            />
+          {isViewer && !hasOwnedSkills ? (
+            <div className="mt-6">
+              <h1 className="text-sm font-semibold tracking-tight text-foreground">
+                Upload your first skill
+              </h1>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Upload a Markdown skill to share it with others, or keep it
+                private until you’re ready.
+              </p>
+              <div className="mt-5">
+                <UploadSkillButton
+                  label="Upload skill"
+                  initialUsername={profile.username}
+                />
+              </div>
+            </div>
           ) : null}
-        </section>
 
-        {isViewer ? (
-          <Suspense
-            fallback={
-              <div className="mb-6 h-9 border-b border-border" aria-hidden />
-            }
-          >
-            <SkillsFilterTabs
-              className="mb-6"
-              value={visibility}
-              basePath={profilePath}
-            />
-          </Suspense>
-        ) : (
-          <h2 className="mb-6 text-sm font-medium tracking-wide text-muted uppercase">
-            Public skills
-          </h2>
-        )}
+          {isViewer ? (
+            <form action="/api/auth/logout" method="post" className="mt-auto pt-8">
+              <button
+                type="submit"
+                className="rounded-md border border-border px-2.5 py-1.5 text-sm font-medium text-foreground transition hover:bg-background"
+              >
+                Sign out
+              </button>
+            </form>
+          ) : null}
+        </aside>
 
-        <Suspense fallback={<SkillGridSkeleton loading />}>
-          <SkillGrid
-            session={session}
-            visibility={visibility}
-            ownerUserId={profile.userId}
-            showOwner={false}
-            empty={
-              isViewer
-                ? visibility === "private"
-                  ? "No private skills yet. Upload a Markdown file to get started."
-                  : "No public skills yet. Upload a Markdown file to get started."
-                : "No public skills yet."
-            }
-          />
-        </Suspense>
-      </main>
+        <main className="flex min-w-0 flex-1 flex-col bg-surface px-4 py-6 sm:px-6">
+          {isViewer ? (
+            <Suspense
+              fallback={
+                <div className="h-9 border-b border-border" aria-hidden />
+              }
+            >
+              <SkillsFilterTabs value={visibility} basePath={profilePath} />
+            </Suspense>
+          ) : (
+            <div className="border-b border-border pb-2.5">
+              <h2 className="text-sm font-medium text-foreground">Public</h2>
+            </div>
+          )}
+
+          <div className="mt-6">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              {tab.title}
+            </h2>
+            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
+              {tab.description}
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-1 flex-col">
+            <Suspense fallback={<SkillGridSkeleton loading />}>
+              <SkillGrid
+                session={session}
+                visibility={visibility}
+                ownerUserId={profile.userId}
+                showOwner={false}
+                empty={isViewer ? tab.emptyOwner : tab.emptyVisitor}
+              />
+            </Suspense>
+          </div>
+        </main>
+      </div>
     </>
   );
 }

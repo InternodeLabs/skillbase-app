@@ -42,10 +42,16 @@ export async function SkillGrid({
 
   if (skills.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted">
-        {empty ??
-          emptyMessage({ query, visibility, signedIn: Boolean(viewerUserId) })}
-      </p>
+      <div className="flex flex-1 items-center justify-center px-4 py-20">
+        <p className="max-w-md text-center text-sm leading-relaxed text-muted">
+          {empty ??
+            emptyMessage({
+              query,
+              visibility,
+              signedIn: Boolean(viewerUserId),
+            })}
+        </p>
+      </div>
     );
   }
 
