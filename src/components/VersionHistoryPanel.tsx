@@ -394,7 +394,7 @@ export function VersionHistoryPanel({
       toast.success(
         `Created version ${(latestVersionNumber + 1).toFixed(0)}.0 from version ${sourceVersion.versionNumber}.0.`,
       );
-      router.push(`/skills/${skillId}`);
+      router.push(skillBrowsePath({ skillId }));
       router.refresh();
     } catch (error) {
       toast.error(
