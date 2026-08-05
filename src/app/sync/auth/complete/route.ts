@@ -38,5 +38,15 @@ export async function GET(request: NextRequest) {
   const callback = new URL("skillbase-sync://auth");
   callback.searchParams.set("session", token);
   callback.searchParams.set("origin", getAppOrigin(request));
+  callback.searchParams.set("username", username);
+  if (session.user.email) {
+    callback.searchParams.set("email", session.user.email);
+  }
+  if (session.user.name) {
+    callback.searchParams.set("name", session.user.name);
+  }
+  if (session.user.image) {
+    callback.searchParams.set("image", session.user.image);
+  }
   return NextResponse.redirect(callback.toString());
 }

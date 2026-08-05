@@ -11,6 +11,12 @@ export async function GET() {
 
   const profile = await getUserProfile(session.user.id);
   return NextResponse.json({
+    user: {
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.name ?? null,
+      image: session.user.image ?? null,
+    },
     profile: profile
       ? { username: profile.username, createdAt: profile.createdAt }
       : null,
