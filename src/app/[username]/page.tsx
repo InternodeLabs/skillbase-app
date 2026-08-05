@@ -33,7 +33,7 @@ const TAB_COPY: Record<
     description:
       "Skills shared publicly. Anyone who visits this page can see these.",
     emptyOwner:
-      "No public skills yet. Drag a .md file onto this page, or upload one to share it with others.",
+      "No public skills yet. Drag a .md file here while on this tab, or upload one to share it with others.",
     emptyVisitor: "No public skills yet.",
   },
   private: {
@@ -41,7 +41,7 @@ const TAB_COPY: Record<
     description:
       "Skills only you can see. Share them privately when you’re ready.",
     emptyOwner:
-      "No private skills yet. Drag a .md file onto this page, or upload one to get started.",
+      "No private skills yet. Drag a .md file here while on this tab, or upload one to get started.",
     emptyVisitor: "No private skills yet.",
   },
 };
@@ -184,7 +184,7 @@ export default async function UserProfilePage({
             <p className="mt-2 text-sm leading-relaxed text-muted">
               Upload a Markdown skill to share it with others, or keep it
               private until you’re ready. You can also drag a .md file onto this
-              page.
+              page — it saves to whichever tab you’re on.
             </p>
             <div className="mt-5">
               <UploadSkillButton
@@ -263,7 +263,6 @@ export default async function UserProfilePage({
       {isViewer ? (
         <ProfileSkillDropZone
           existingSlugs={existingSlugs}
-          basePath={profilePath}
           currentVisibility={visibility}
         >
           {profileBody}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { FileUp, Lock, Unlock, X } from "lucide-react";
+import { FileUp, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -9,7 +9,6 @@ import {
   useId,
   useRef,
   useState,
-  type DragEvent,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
@@ -34,15 +33,17 @@ type PendingUpload = {
   visibility: SkillVisibility;
 };
 
+/**
+ * Page-level .md drop upload for the signed-in owner on their `/{username}`
+ * profile. Visibility follows the active Public / Private tab.
+ */
 export function ProfileSkillDropZone({
   existingSlugs,
-  basePath,
   currentVisibility,
   children,
 }: {
   /** Slugs already owned by this user (conflict check). */
   existingSlugs: string[];
-  basePath: string;
   currentVisibility: SkillVisibility;
   children: ReactNode;
 }) {
@@ -51,22 +52,25 @@ export function ProfileSkillDropZone({
   const dragDepth = useRef(0);
   const [dragging, setDragging] = useState(false);
   const [dragInvalid, setDragInvalid] = useState(false);
-  const [hoverTarget, setHoverTarget] = useState<SkillVisibility | null>(null);
   const [pending, setPending] = useState<PendingUpload | null>(null);
   const [conflictName, setConflictName] = useState("");
   const [conflictError, setConflictError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const slugSet = useRef(new Set(existingSlugs));
+  const visibilityRef = useRef(currentVisibility);
 
   useEffect(() => {
     slugSet.current = new Set(existingSlugs);
   }, [existingSlugs]);
 
+  useEffect(() => {
+    visibilityRef.current = currentVisibility;
+  }, [currentVisibility]);
+
   const clearDrag = useCallback(() => {
     dragDepth.current = 0;
     setDragging(false);
     setDragInvalid(false);
-    setHoverTarget(null);
   }, []);
 
   const isNameTaken = useCallback((name: string) => {
@@ -114,17 +118,6 @@ export function ProfileSkillDropZone({
         setPending(null);
         setConflictError(null);
         setSubmitting(false);
-
-        const nextPath =
-          input.visibility === "private"
-            ? `${basePath}?visibility=private`
-            : basePath;
-        if (
-          (currentVisibility === "private") !==
-          (input.visibility === "private")
-        ) {
-          router.replace(nextPath);
-        }
         router.refresh();
         return true;
       } catch {
@@ -133,11 +126,11 @@ export function ProfileSkillDropZone({
         return false;
       }
     },
-    [basePath, currentVisibility, router],
+    [router],
   );
 
   const beginUpload = useCallback(
-    async (file: File, visibility: SkillVisibility) => {
+    async (file: File) => {
       if (!isMarkdownFile(file)) {
         toast.error(MD_ERROR);
         return;
@@ -161,7 +154,7 @@ export function ProfileSkillDropZone({
         name,
         markdown,
         filename: file.name,
-        visibility,
+        visibility: visibilityRef.current,
       };
 
       if (isNameTaken(name)) {
@@ -210,8 +203,10 @@ export function ProfileSkillDropZone({
       if (!event.dataTransfer || !dataTransferHasFiles(event.dataTransfer)) {
         return;
       }
-      // Overlay handles real drops; clear page drag state if drop lands elsewhere.
+      event.preventDefault();
+      const file = event.dataTransfer.files[0];
       clearDrag();
+      if (file) void beginUpload(file);
     }
 
     window.addEventListener("dragenter", onDragEnter);
@@ -224,28 +219,7 @@ export function ProfileSkillDropZone({
       window.removeEventListener("dragleave", onDragLeave);
       window.removeEventListener("drop", onDrop);
     };
-  }, [clearDrag]);
-
-  const onZoneDragOver = useCallback(
-    (visibility: SkillVisibility) => (event: DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setHoverTarget(visibility);
-      setDragInvalid(isMarkdownDataTransfer(event.dataTransfer) === false);
-    },
-    [],
-  );
-
-  const onZoneDrop = useCallback(
-    (visibility: SkillVisibility) => (event: DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      clearDrag();
-      const file = event.dataTransfer.files[0];
-      if (file) void beginUpload(file, visibility);
-    },
-    [beginUpload, clearDrag],
-  );
+  }, [beginUpload, clearDrag]);
 
   async function confirmRenamedUpload() {
     if (!pending || submitting) return;
@@ -263,76 +237,44 @@ export function ProfileSkillDropZone({
     await uploadSkill({ ...pending, name });
   }
 
+  const visibilityLabel =
+    currentVisibility === "public" ? "public" : "private";
+
   return (
     <>
       {children}
 
       {dragging ? (
         <div
-          className="fixed inset-0 z-40 flex items-stretch justify-center bg-foreground/40 p-4 sm:p-8"
-          onDragOver={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-          onDragLeave={(event) => {
-            if (event.currentTarget.contains(event.relatedTarget as Node)) {
-              return;
-            }
-            clearDrag();
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            clearDrag();
-          }}
+          className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-foreground/40 p-4 sm:p-8"
+          aria-hidden
         >
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 self-center sm:flex-row sm:gap-4">
-            {dragInvalid ? (
-              <div
-                className="flex min-h-48 flex-1 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-red-500 bg-red-50 px-6 py-10 text-center text-red-700"
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  clearDrag();
-                  toast.error(MD_ERROR);
-                }}
-              >
-                <FileUp className="h-8 w-8" aria-hidden />
-                <div>
-                  <p className="text-sm font-semibold">
-                    Only Markdown files are supported
-                  </p>
-                  <p className="mt-1 text-xs text-red-600">
-                    Drop will be rejected · .md required
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <DropTarget
-                  label="Public"
-                  description="Anyone who visits your profile can see it"
-                  icon={<Unlock className="h-5 w-5" aria-hidden />}
-                  active={hoverTarget === "public"}
-                  onDragEnter={onZoneDragOver("public")}
-                  onDragOver={onZoneDragOver("public")}
-                  onDrop={onZoneDrop("public")}
-                />
-                <DropTarget
-                  label="Private"
-                  description="Only you can see it"
-                  icon={<Lock className="h-5 w-5" aria-hidden />}
-                  active={hoverTarget === "private"}
-                  onDragEnter={onZoneDragOver("private")}
-                  onDragOver={onZoneDragOver("private")}
-                  onDrop={onZoneDrop("private")}
-                />
-              </>
+          <div
+            className={cn(
+              "flex min-h-48 w-full max-w-md flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center shadow-lg",
+              dragInvalid
+                ? "border-red-500 bg-red-50 text-red-700"
+                : "border-accent bg-surface text-foreground",
             )}
+          >
+            <FileUp className="h-8 w-8" aria-hidden />
+            <div>
+              <p className="text-sm font-semibold">
+                {dragInvalid
+                  ? "Only Markdown files are supported"
+                  : `Drop to save as ${visibilityLabel}`}
+              </p>
+              <p
+                className={cn(
+                  "mt-1 text-xs",
+                  dragInvalid ? "text-red-600" : "text-muted",
+                )}
+              >
+                {dragInvalid
+                  ? "Drop will be rejected · .md required"
+                  : `Uploads to your ${visibilityLabel} skills`}
+              </p>
+            </div>
           </div>
         </div>
       ) : null}
@@ -356,11 +298,7 @@ export function ProfileSkillDropZone({
                   Name already in use
                 </Dialog.Title>
                 <Dialog.Description className="mt-1 text-sm text-muted">
-                  Choose a new name before uploading
-                  {pending
-                    ? ` as ${pending.visibility === "public" ? "public" : "private"}`
-                    : ""}
-                  .
+                  Choose a new name before uploading as {visibilityLabel}.
                 </Dialog.Description>
               </div>
               <Dialog.Close asChild>
@@ -435,50 +373,5 @@ export function ProfileSkillDropZone({
         </Dialog.Portal>
       </Dialog.Root>
     </>
-  );
-}
-
-function DropTarget({
-  label,
-  description,
-  icon,
-  active,
-  onDragEnter,
-  onDragOver,
-  onDrop,
-}: {
-  label: string;
-  description: string;
-  icon: ReactNode;
-  active: boolean;
-  onDragEnter: (event: DragEvent<HTMLDivElement>) => void;
-  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
-  onDrop: (event: DragEvent<HTMLDivElement>) => void;
-}) {
-  return (
-    <div
-      onDragEnter={onDragEnter}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      className={cn(
-        "flex min-h-48 flex-1 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed bg-surface px-6 py-10 text-center transition",
-        active
-          ? "border-accent bg-background shadow-lg"
-          : "border-border text-foreground",
-      )}
-    >
-      <span
-        className={cn(
-          "grid h-11 w-11 place-items-center rounded-full",
-          active ? "bg-accent text-accent-foreground" : "bg-background text-foreground",
-        )}
-      >
-        {icon}
-      </span>
-      <div>
-        <p className="text-sm font-semibold">Drop to save as {label}</p>
-        <p className="mt-1 text-xs text-muted">{description}</p>
-      </div>
-    </div>
   );
 }
