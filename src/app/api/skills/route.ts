@@ -42,10 +42,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { name, markdown } = body as { name?: unknown; markdown?: unknown };
+  const { name, markdown, visibility } = body as {
+    name?: unknown;
+    markdown?: unknown;
+    visibility?: unknown;
+  };
   if (typeof name !== "string" || typeof markdown !== "string") {
     return NextResponse.json(
       { error: "name and markdown are required strings." },
+      { status: 400 },
+    );
+  }
+  if (
+    visibility !== undefined &&
+    visibility !== "public" &&
+    visibility !== "private"
+  ) {
+    return NextResponse.json(
+      { error: "visibility must be public or private." },
       { status: 400 },
     );
   }
@@ -55,6 +69,7 @@ export async function POST(request: Request) {
       name,
       markdown,
       ownerUserId: session.user.id,
+      visibility,
     });
     return NextResponse.json({ skill }, { status: 201 });
   } catch (error) {

@@ -1,14 +1,14 @@
 import { cn } from "@/lib/utils";
 
 /** How many skeleton tiles to show while the library grid is loading. */
-export const SKILL_GRID_SKELETON_COUNT = 12;
+export const SKILL_GRID_SKELETON_COUNT = 8;
 
 /** Minimum tiles in the populated library grid (real + skeleton fillers). */
 export const SKILL_GRID_MIN_TILES = 8;
 
 export function SkillSkeletonTile({ loading = false }: { loading?: boolean }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-tile-footer h-full">
+    <div className="overflow-hidden rounded-xl border border-border bg-tile-footer h-56">
       <div
         className={cn("aspect-4/3", loading ? "skeleton-loading" : "skeleton")}
       />

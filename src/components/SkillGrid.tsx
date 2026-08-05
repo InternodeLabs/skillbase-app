@@ -90,7 +90,7 @@ export async function SkillGrid({
 
         return (
           <li key={skill.id}>
-            <div className="group overflow-hidden rounded-xl border border-border bg-tile-footer transition hover:shadow-md">
+            <div className="group overflow-hidden rounded-xl border border-border bg-tile-footer transition hover:shadow-md h-56">
               <Link
                 href={skillBrowsePath({
                   skillId: skill.id,
@@ -106,7 +106,10 @@ export async function SkillGrid({
                   <h2 className="flex items-center gap-1 truncate text-sm font-medium text-foreground">
                     {skill.forkedFrom ? (
                       skill.forkedFrom.accessible ? null : (
-                        <GitForkIcon className="size-3 text-muted" aria-hidden />
+                        <GitForkIcon
+                          className="size-3 text-muted"
+                          aria-hidden
+                        />
                       )
                     ) : null}
                     {skill.name}

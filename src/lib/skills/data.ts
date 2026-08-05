@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
-import slugify from "slugify";
+import { skillSlugFromName } from "@/lib/skills/slug";
 
 import { db } from "@/lib/db/client";
 import { skills, skillVersions, userProfiles } from "@/lib/db/schema";
@@ -512,7 +512,7 @@ function summaryFromMarkdown(markdown: string): string {
 
 /** Allocate a slug unique among this owner's skills (not globally). */
 async function uniqueSlug(base: string, ownerUserId: string): Promise<string> {
-  const root = slugify(base, { lower: true, strict: true }) || "skill";
+  const root = skillSlugFromName(base);
   for (let attempt = 0; attempt < 50; attempt++) {
     const candidate = attempt === 0 ? root : `${root}-${attempt + 1}`;
     const existing = await db
@@ -535,11 +535,13 @@ export async function createSkillFromMarkdown(input: {
   name: string;
   markdown: string;
   ownerUserId: string;
+  visibility?: SkillVisibility;
 }): Promise<Skill> {
   const name = input.name.trim();
   if (!name) throw new Error("Name is required.");
   if (!input.markdown.trim()) throw new Error("Markdown content is required.");
 
+  const visibility = input.visibility === "public" ? "public" : "private";
   const slug = await uniqueSlug(name, input.ownerUserId);
   const summary = summaryFromMarkdown(input.markdown);
 
@@ -558,7 +560,7 @@ export async function createSkillFromMarkdown(input: {
     parameters: [],
     exampleOutput: { title: "", items: [] },
     scenarios: [],
-    visibility: "private",
+    visibility,
     authorUserId: input.ownerUserId,
   });
 
@@ -575,7 +577,7 @@ export async function createSkillFromMarkdown(input: {
     exampleOutput: { title: "", items: [] },
     scenarios: [],
     ownerUserId: input.ownerUserId,
-    visibility: "private",
+    visibility,
     versionNumber: 1,
   };
 }

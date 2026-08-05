@@ -29,9 +29,7 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-const WORKSPACES = [
-  { id: "balazsketyi", name: "@BalazsKetyi" },
-] as const;
+const WORKSPACES = [{ id: "balazsketyi", name: "@BalazsKetyi" }] as const;
 
 type WorkspaceId = (typeof WORKSPACES)[number]["id"];
 
@@ -56,8 +54,7 @@ const EMPTY_COPY: Record<Exclude<TabId, "synced">, string> = {
 const TAB_DESCRIPTIONS: Record<TabId, string> = {
   public:
     "All the skills that you are sharing publicly. Anyone who visit your page can see these",
-  private:
-    "Skills only you can see. Share them privately when you’re ready.",
+  private: "Skills only you can see. Share them privately when you’re ready.",
   draft: "Work-in-progress skills that aren’t published yet.",
   synced:
     "Skills you’ve synced from a URL so you can keep them in this workspace.",
@@ -82,9 +79,8 @@ export function ProfileBalazsPage() {
   const [uploadedSkills, setUploadedSkills] = useState<OwnedSkill[]>([]);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [pendingDisconnect, setPendingDisconnect] = useState<SyncedSkill | null>(
-    null,
-  );
+  const [pendingDisconnect, setPendingDisconnect] =
+    useState<SyncedSkill | null>(null);
   const workspace =
     WORKSPACES.find((item) => item.id === workspaceId) ?? WORKSPACES[0];
   const tabLabel = TABS.find((item) => item.id === tab)?.label ?? "Public";
@@ -118,10 +114,7 @@ export function ProfileBalazsPage() {
       return false;
     }
 
-    setSyncedSkills((prev) => [
-      { id: crypto.randomUUID(), url },
-      ...prev,
-    ]);
+    setSyncedSkills((prev) => [{ id: crypto.randomUUID(), url }, ...prev]);
     setSyncUrl("");
     setSyncError(null);
     return true;
@@ -225,8 +218,8 @@ export function ProfileBalazsPage() {
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col md:flex-row">
-        <aside className="w-full shrink-0 border-b border-[var(--pb-border)] px-4 py-6 sm:px-6 md:w-[280px] md:border-b-0 md:border-r lg:w-[320px]">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col md:flex-row">
+        <aside className="w-full shrink-0 border-b border-[var(--pb-border)] px-4 py-6 sm:px-6 md:w-72 md:border-b-0 md:border-r lg:w-80">
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button
@@ -289,8 +282,8 @@ export function ProfileBalazsPage() {
                 Upload your first skill
               </h1>
               <p className="mt-2 text-sm leading-relaxed text-[var(--pb-muted)]">
-                Upload your first skill to share it with others, or connect to an
-                existing skill that someone else created.
+                Upload your first skill to share it with others, or connect to
+                an existing skill that someone else created.
               </p>
               <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
                 <button

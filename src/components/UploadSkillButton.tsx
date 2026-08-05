@@ -3,6 +3,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ClaimUsernameDialog } from "@/components/ClaimUsernameDialog";
 import { ForwardRefEditor } from "@/components/mdx/ForwardRefEditor";
+import {
+  isMarkdownDataTransfer,
+  isMarkdownFile,
+  nameFromFilename,
+  redactEmails,
+} from "@/lib/skills/markdown-file";
 import { skillBrowsePath } from "@/lib/skills/params";
 import { FileUp, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,69 +24,6 @@ import {
 import { toast } from "sonner";
 
 const MD_ERROR = "Please choose a Markdown file (.md).";
-
-/** Derive a display name: underscores → spaces, drop trailing "skill", title case. */
-function nameFromFilename(filename: string): string {
-  const base =
-    filename.replace(/\.(md|markdown|mdown|mkd)$/i, "").trim() || filename;
-  const withSpaces = base.replace(/_/g, " ").replace(/\s+/g, " ").trim();
-  const withoutSkill =
-    withSpaces.replace(/\bskill$/i, "").replace(/\s+/g, " ").trim() ||
-    withSpaces;
-
-  return withoutSkill
-    .split(" ")
-    .filter(Boolean)
-    .map(
-      (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
-    )
-    .join(" ");
-}
-
-const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-
-function redactEmails(text: string): string {
-  return text.replace(EMAIL_RE, "[email]");
-}
-
-function isMarkdownFile(file: File): boolean {
-  const name = file.name.toLowerCase();
-  return (
-    name.endsWith(".md") ||
-    name.endsWith(".markdown") ||
-    name.endsWith(".mdown") ||
-    name.endsWith(".mkd") ||
-    file.type === "text/markdown" ||
-    file.type === "text/x-markdown"
-  );
-}
-
-/** During drag, infer whether the payload looks like Markdown. `null` = unknown. */
-function isMarkdownDataTransfer(dataTransfer: DataTransfer): boolean | null {
-  const items = Array.from(dataTransfer.items).filter(
-    (item) => item.kind === "file",
-  );
-  if (items.length === 0) return null;
-
-  const file = items[0]?.getAsFile();
-  if (file?.name) return isMarkdownFile(file);
-
-  const type = items[0]?.type ?? "";
-  if (type === "text/markdown" || type === "text/x-markdown") return true;
-  if (
-    type.startsWith("image/") ||
-    type.startsWith("video/") ||
-    type.startsWith("audio/") ||
-    type === "application/pdf" ||
-    type === "application/zip" ||
-    type === "application/json" ||
-    type.startsWith("application/")
-  ) {
-    return false;
-  }
-
-  return null;
-}
 
 export function UploadSkillButton({
   label = "Upload Skill",
