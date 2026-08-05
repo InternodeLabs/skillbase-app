@@ -1,5 +1,6 @@
 "use client";
 
+import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   Download,
@@ -10,6 +11,7 @@ import {
   Pencil,
   Pin,
   Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
@@ -76,6 +78,7 @@ export function SkillActionsPanel() {
     publishVersion,
     forkAndEdit,
     deleteCurrentVersion,
+    deleteAllVersions,
     copyShareLink,
   } = useSkillDetail();
 
@@ -86,6 +89,7 @@ export function SkillActionsPanel() {
   );
   const [showShareUrl, setShowShareUrl] = useState(false);
   const [previewForAgent, setPreviewForAgent] = useState(true);
+  const [confirmDeleteAllOpen, setConfirmDeleteAllOpen] = useState(false);
 
   const sharePath = buildSkillSharePath({
     skillId,
@@ -349,33 +353,120 @@ export function SkillActionsPanel() {
                 <Pencil className="size-3.5" aria-hidden />
               </Link>
             ) : null}
-            {canDeleteCurrent ? (
+            {canDeleteCurrent && deletesWholeSkill ? (
               <button
                 type="button"
                 disabled={deleting}
                 onClick={() => void deleteCurrentVersion()}
-                aria-label={
-                  deleting
-                    ? "Deleting…"
-                    : deletesWholeSkill
-                      ? "Delete skill"
-                      : `Delete version ${selectedVersionNumber}.0`
-                }
-                title={
-                  deleting
-                    ? "Deleting…"
-                    : deletesWholeSkill
-                      ? "Delete skill"
-                      : `Delete version ${selectedVersionNumber}.0`
-                }
+                aria-label={deleting ? "Deleting…" : "Delete skill"}
+                title={deleting ? "Deleting…" : "Delete skill"}
                 className={`${actionIconButtonClass} text-red-600`}
               >
                 <Trash2 className="size-3.5" aria-hidden />
               </button>
             ) : null}
+            {canDeleteCurrent && !deletesWholeSkill ? (
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    aria-label={
+                      deleting
+                        ? "Deleting…"
+                        : `Delete version ${selectedVersionNumber}.0`
+                    }
+                    title={
+                      deleting
+                        ? "Deleting…"
+                        : `Delete version ${selectedVersionNumber}.0`
+                    }
+                    className={`${actionIconButtonClass} text-red-600`}
+                  >
+                    <Trash2 className="size-3.5" aria-hidden />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={6}
+                    className="z-50 min-w-44 rounded-md border border-border bg-surface p-1 shadow-md"
+                  >
+                    <DropdownMenu.Item
+                      disabled={deleting}
+                      onSelect={() => void deleteCurrentVersion()}
+                      className="cursor-pointer rounded px-3 py-2 text-sm text-foreground outline-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-background"
+                    >
+                      Delete this version
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      disabled={deleting}
+                      onSelect={() => setConfirmDeleteAllOpen(true)}
+                      className="cursor-pointer rounded px-3 py-2 text-sm text-red-600 outline-none data-disabled:pointer-events-none data-disabled:opacity-40 data-highlighted:bg-background"
+                    >
+                      Delete all versions
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            ) : null}
           </div>
         </div>
       )}
+
+      <Dialog.Root
+        open={confirmDeleteAllOpen}
+        onOpenChange={(open) => {
+          if (deleting) return;
+          setConfirmDeleteAllOpen(open);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/40" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(100%-2rem,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-surface shadow-xl focus:outline-none">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+              <div>
+                <Dialog.Title className="text-base font-semibold tracking-tight">
+                  Delete all versions?
+                </Dialog.Title>
+                <Dialog.Description className="mt-1 text-sm text-muted">
+                  This permanently removes every version of this skill. It will
+                  no longer appear in the library.
+                </Dialog.Description>
+              </div>
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  disabled={deleting}
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted transition hover:bg-background hover:text-foreground disabled:opacity-40"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                </button>
+              </Dialog.Close>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-3">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-background disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void deleteAllVersions()}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deleting ? "Deleting…" : "Delete all"}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </section>
   );
 }

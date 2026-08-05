@@ -805,6 +805,67 @@ export async function deleteSkillVersion(input: {
 }
 
 /**
+ * Soft-delete every live version. Owner only.
+ * Blocked when any live version has been forked.
+ */
+export async function deleteAllSkillVersions(input: {
+  skillId: string;
+  ownerUserId: string;
+}): Promise<void> {
+  const byId = UUID_RE.test(input.skillId)
+    ? eq(skills.id, input.skillId)
+    : eq(skills.slug, input.skillId);
+
+  const [lineage] = await db
+    .select({ id: skills.id, ownerUserId: skills.ownerUserId })
+    .from(skills)
+    .where(byId)
+    .limit(1);
+
+  if (!lineage) throw new Error("Skill not found.");
+  if (lineage.ownerUserId !== input.ownerUserId) {
+    throw new Error("Only the skill owner can delete a version.");
+  }
+
+  const liveVersions = await db
+    .select({
+      id: skillVersions.id,
+      isForked: sql<boolean>`exists (
+        select 1 from skill as fork
+        where fork.forked_from_version_id = ${skillVersions.id}
+      )`,
+    })
+    .from(skillVersions)
+    .where(
+      and(
+        eq(skillVersions.skillId, lineage.id),
+        isNull(skillVersions.deletedAt),
+      ),
+    );
+
+  if (liveVersions.length === 0) {
+    throw new Error("Skill has no versions to delete.");
+  }
+
+  if (liveVersions.some((version) => Boolean(version.isForked))) {
+    throw new Error(
+      "Cannot delete all versions because at least one has been forked.",
+    );
+  }
+
+  const now = new Date();
+  await db
+    .update(skillVersions)
+    .set({ deletedAt: now })
+    .where(
+      inArray(
+        skillVersions.id,
+        liveVersions.map((version) => version.id),
+      ),
+    );
+}
+
+/**
  * In-place visibility change for the latest live version. Owner only.
  * Does not create a new version — visibility is metadata, not content history.
  */

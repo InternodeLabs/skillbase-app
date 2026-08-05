@@ -77,6 +77,7 @@ type SkillDetailContextValue = {
   toggleLatestVisibility: () => Promise<void>;
   copyShareLink: (forAgent: boolean) => Promise<void>;
   deleteCurrentVersion: () => Promise<void>;
+  deleteAllVersions: () => Promise<void>;
 };
 
 const SkillDetailContext = createContext<SkillDetailContextValue | null>(null);
@@ -545,6 +546,29 @@ export function SkillDetailProvider({
     versions,
   ]);
 
+  const deleteAllVersions = useCallback(async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/skills/${skill.id}/versions`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error || "Could not delete skill.");
+      }
+      toast.success("Skill deleted");
+      router.push("/");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not delete skill.",
+      );
+      setDeleting(false);
+    }
+  }, [deleting, router, skill.id]);
+
   const value = useMemo<SkillDetailContextValue>(
     () => ({
       skill,
@@ -588,6 +612,7 @@ export function SkillDetailProvider({
       toggleLatestVisibility,
       copyShareLink,
       deleteCurrentVersion,
+      deleteAllVersions,
     }),
     [
       skill,
@@ -626,6 +651,7 @@ export function SkillDetailProvider({
       toggleLatestVisibility,
       copyShareLink,
       deleteCurrentVersion,
+      deleteAllVersions,
     ],
   );
 

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/server";
-import { createSkillVersion, deleteSkillVersion } from "@/lib/skills/data";
+import {
+  createSkillVersion,
+  deleteAllSkillVersions,
+  deleteSkillVersion,
+} from "@/lib/skills/data";
 
 export async function POST(
   request: Request,
@@ -88,14 +92,37 @@ export async function DELETE(
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { versionNumber } = body as { versionNumber?: unknown };
+  const { versionNumber, all } = body as {
+    versionNumber?: unknown;
+    all?: unknown;
+  };
+
+  if (all === true) {
+    try {
+      await deleteAllSkillVersions({
+        skillId: id,
+        ownerUserId: session.user.id,
+      });
+      return NextResponse.json({ deleted: "all" });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not delete versions.";
+      const status = message.includes("owner")
+        ? 403
+        : message.includes("not found")
+          ? 404
+          : 400;
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
   if (
     typeof versionNumber !== "number" ||
     !Number.isInteger(versionNumber) ||
     versionNumber < 1
   ) {
     return NextResponse.json(
-      { error: "versionNumber must be a positive integer." },
+      { error: "versionNumber must be a positive integer, or pass all: true." },
       { status: 400 },
     );
   }
