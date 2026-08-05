@@ -13,7 +13,7 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
+  const session = await getSession(request);
   const { id } = await context.params;
   const url = new URL(request.url);
   const versionNumber = parseVersionParam(url.searchParams.get("v"));

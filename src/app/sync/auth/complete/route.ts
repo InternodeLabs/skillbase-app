@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getAppOrigin, SESSION_COOKIE } from "@/lib/auth/config";
 import { getSession } from "@/lib/auth/server";
+import { issueSyncAuthCode } from "@/lib/auth/sync-handoff";
 import { claimUsernamePath, loginStartHref } from "@/lib/auth/urls";
 import { getUsernameForUser } from "@/lib/users/profile";
 
@@ -10,8 +11,11 @@ import { getUsernameForUser } from "@/lib/users/profile";
  * Handoff for Skillbase Sync (`ASWebAuthenticationSession`).
  *
  * If the browser session is signed in, redirect to
- * `skillbase-sync://auth?session=…&origin=…` so the Mac app can store the
- * signed session and call write APIs with `Authorization: Bearer`.
+ * `skillbase-sync://auth?code=…&origin=…` so the Mac app can exchange the
+ * short code for the signed session (Bearer) via POST /api/sync/auth/exchange.
+ * Putting the full session in the callback URL truncates and breaks private
+ * skill access while Sync still thinks it is signed in.
+ *
  * Otherwise send the user through the normal login entry, then back here.
  * Users without a Skillbase username claim one before the Sync handoff.
  */
@@ -35,8 +39,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(loginPath, request.nextUrl.origin));
   }
 
+  const code = issueSyncAuthCode(token);
+
   const callback = new URL("skillbase-sync://auth");
-  callback.searchParams.set("session", token);
+  callback.searchParams.set("code", code);
   callback.searchParams.set("origin", getAppOrigin(request));
   callback.searchParams.set("username", username);
   if (session.user.email) {

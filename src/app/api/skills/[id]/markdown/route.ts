@@ -17,7 +17,7 @@ async function resolveSkillMarkdown(
   id: string,
   request: Request,
 ): Promise<Response> {
-  const session = await getSession();
+  const session = await getSession(request);
   const url = new URL(request.url);
   const versionNumber = parseVersionParam(url.searchParams.get("v"));
   const code = url.searchParams.get("code") ?? undefined;
