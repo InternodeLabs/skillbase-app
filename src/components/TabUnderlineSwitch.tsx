@@ -14,11 +14,14 @@ export function TabUnderlineSwitch<T extends string>({
   value,
   onChange,
   className,
+  indicatorClassName,
 }: {
   tabs: readonly TabUnderlineOption<T>[];
   value: T;
   onChange?: (tab: T) => void;
   className?: string;
+  /** Overrides the default `bg-foreground` active underline. */
+  indicatorClassName?: string;
 }) {
   const [active, setActive] = useState<T>(value);
   const listRef = useRef<HTMLDivElement>(null);
@@ -77,7 +80,10 @@ export function TabUnderlineSwitch<T extends string>({
       </div>
       <div className="absolute inset-x-0 bottom-0 h-px bg-border" aria-hidden />
       <div
-        className="absolute bottom-0 h-0.5 bg-foreground transition-[left,width] duration-200 ease-out"
+        className={cn(
+          "absolute bottom-0 h-0.5 bg-foreground transition-[left,width] duration-200 ease-out",
+          indicatorClassName,
+        )}
         style={{ left: indicator.left, width: indicator.width }}
         aria-hidden
       />

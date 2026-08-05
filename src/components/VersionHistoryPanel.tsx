@@ -1,7 +1,7 @@
 "use client";
 
 import { format, isToday, isYesterday } from "date-fns";
-import { History, Lock, Trash2 } from "lucide-react";
+import { History, Lock, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -349,16 +349,80 @@ export function VersionHistoryPanel({
   liveVersionCount: number;
   canEdit: boolean;
 }) {
+  const router = useRouter();
+  const [creatingVersion, setCreatingVersion] = useState(false);
   const latestLive =
     [...versions].reverse().find((version) => !version.deleted) ?? null;
   const latestVersionNumber =
     latestLive?.versionNumber ?? selectedVersionNumber;
+
+  const sourceVersion =
+    versions.find(
+      (version) =>
+        version.versionNumber === selectedVersionNumber && !version.deleted,
+    ) ?? latestLive;
+
+  async function addVersionFromPrevious() {
+    if (!canEdit || creatingVersion || !sourceVersion) return;
+
+    setCreatingVersion(true);
+    try {
+      const markdownResponse = await fetch(
+        `/api/skills/${skillId}/markdown?v=${sourceVersion.versionNumber}`,
+      );
+      if (!markdownResponse.ok) {
+        throw new Error("Could not load the previous version.");
+      }
+      const markdown = (await markdownResponse.text()).trim();
+      if (!markdown) {
+        throw new Error("Previous version has no content to copy.");
+      }
+
+      const response = await fetch(`/api/skills/${skillId}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          markdown,
+          visibility: sourceVersion.visibility,
+        }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error || "Could not create a new version.");
+      }
+
+      toast.success(
+        `Created version ${(latestVersionNumber + 1).toFixed(0)}.0 from version ${sourceVersion.versionNumber}.0.`,
+      );
+      router.push(`/skills/${skillId}`);
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not create a new version.",
+      );
+    } finally {
+      setCreatingVersion(false);
+    }
+  }
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
         <History className="h-4 w-4 text-muted" aria-hidden />
         <h2 className="text-sm font-medium text-foreground">Version history</h2>
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => void addVersionFromPrevious()}
+            disabled={creatingVersion || !sourceVersion}
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+            {creatingVersion ? "Adding…" : "New version"}
+          </button>
+        ) : null}
       </div>
 
       <VersionTimeline

@@ -13,6 +13,7 @@ const RESERVED = new Set([
   "auth",
   "callback",
   "explore",
+  "profile-balazs",
   "help",
   "login",
   "logout",

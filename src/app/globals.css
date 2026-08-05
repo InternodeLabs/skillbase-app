@@ -224,3 +224,25 @@ body {
   padding: 0;
   min-height: 12rem;
 }
+
+/* Scoped tokens from skillbase-www/docs/design.md — profile prototype */
+.profile-balazs {
+  --pb-red: #ff4f31;
+  --pb-blue: #3b5bfd;
+  --pb-ink: #16161f;
+  --pb-paper: #f2f0f8;
+  --pb-white: #ffffff;
+  --pb-green: #00a15c;
+  --pb-sky: #0b8cf5;
+  --pb-muted: color-mix(in srgb, var(--pb-ink) 55%, transparent);
+  --pb-border: color-mix(in srgb, var(--pb-ink) 12%, transparent);
+  --pb-r-inner: 14px;
+  --pb-r-card: 28px;
+  --pb-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+
+  color: var(--pb-ink);
+}
+
+.profile-balazs.profile-balazs-page {
+  background: var(--pb-paper);
+}

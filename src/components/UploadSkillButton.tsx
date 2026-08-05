@@ -8,6 +8,7 @@ import { FileUp, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -84,17 +85,36 @@ function isMarkdownDataTransfer(dataTransfer: DataTransfer): boolean | null {
 export function UploadSkillButton({
   label = "Upload Skill",
   initialUsername = null,
+  open: openProp,
+  onOpenChange,
+  hideTrigger = false,
+  onUploaded,
 }: {
   label?: string;
   /** Null until the signed-in user claims a vanity URL. */
   initialUsername?: string | null;
+  /** Controlled dialog open state. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Hide the default trigger button (use with controlled `open`). */
+  hideTrigger?: boolean;
+  onUploaded?: (skill: { id: string; name: string }) => void;
 }) {
   const router = useRouter();
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [username, setUsername] = useState<string | null>(initialUsername);
   const [claimOpen, setClaimOpen] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : uncontrolledOpen;
+  const setOpen = useCallback(
+    (next: boolean) => {
+      if (!controlled) setUncontrolledOpen(next);
+      onOpenChange?.(next);
+    },
+    [controlled, onOpenChange],
+  );
   const [dragging, setDragging] = useState(false);
   const [dragInvalid, setDragInvalid] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -197,8 +217,10 @@ export function UploadSkillButton({
         return;
       }
 
+      const skillName = name.trim();
       setOpen(false);
       reset();
+      onUploaded?.({ id: data.skill.id, name: skillName });
       router.push(
         skillBrowsePath({
           skillId: data.skill.id,
@@ -211,26 +233,37 @@ export function UploadSkillButton({
       setError("Upload failed. Try again.");
       setSubmitting(false);
     }
-  }, [content, name, reset, router, submitting, username]);
+  }, [content, name, onUploaded, reset, router, submitting, username]);
+
+  function startUpload() {
+    if (!username) {
+      setClaimOpen(true);
+      return;
+    }
+    setOpen(true);
+  }
+
+  // Controlled opens without a claimed username should claim first.
+  useEffect(() => {
+    if (!open || username) return;
+    setOpen(false);
+    setClaimOpen(true);
+  }, [open, username, setOpen]);
 
   return (
     <>
-      <button
-        type="button"
-        aria-label={label}
-        title={label}
-        className="btn-primary"
-        onClick={() => {
-          if (!username) {
-            setClaimOpen(true);
-            return;
-          }
-          setOpen(true);
-        }}
-      >
-        <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-        {label}
-      </button>
+      {hideTrigger ? null : (
+        <button
+          type="button"
+          aria-label={label}
+          title={label}
+          className="btn-primary"
+          onClick={startUpload}
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+          {label}
+        </button>
+      )}
 
       <ClaimUsernameDialog
         open={claimOpen}
