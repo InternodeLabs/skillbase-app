@@ -3,7 +3,7 @@
 import { format, isToday, isYesterday } from "date-fns";
 import { History, Lock, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import type { SkillVisibility } from "@/lib/skills/types";
@@ -26,39 +26,73 @@ type DayGroup = {
   versions: VersionHistoryEntry[];
 };
 
+const emptySubscribe = () => () => {};
+
+/** False on the server and during hydration; true after mount. */
+function useIsHydrated(): boolean {
+  return useSyncExternalStore(emptySubscribe, () => true, () => false);
+}
+
 function versionLabel(versionNumber: number, deleted = false): string {
   return deleted
     ? `Version ${versionNumber}.0 (deleted)`
     : `Version ${versionNumber}.0`;
 }
 
-function versionTimeLabel(iso: string): string {
-  return format(new Date(iso), "h:mm a");
-}
-
-function dayKey(iso: string): string {
-  return format(new Date(iso), "yyyy-MM-dd");
-}
-
-function dayLabel(iso: string): string {
+/**
+ * Date/time labels must match between SSR and the client's first paint.
+ * Vercel is UTC; browsers use the user's timezone — so local `format` /
+ * `isToday` diverge in production and throw React #418. Use UTC until
+ * hydrated, then switch to local relative labels.
+ */
+function versionTimeLabel(iso: string, local: boolean): string {
   const date = new Date(iso);
+  if (!local) {
+    return date.toLocaleTimeString("en-US", {
+      timeZone: "UTC",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+  return format(date, "h:mm a");
+}
+
+function dayKey(iso: string, local: boolean): string {
+  const date = new Date(iso);
+  if (!local) return iso.slice(0, 10);
+  return format(date, "yyyy-MM-dd");
+}
+
+function dayLabel(iso: string, local: boolean): string {
+  const date = new Date(iso);
+  if (!local) {
+    return date.toLocaleDateString("en-US", {
+      timeZone: "UTC",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
   return format(date, "do MMMM");
 }
 
 /** Group a newest-first timeline into calendar days (newest day first). */
-function groupByDay(versions: VersionHistoryEntry[]): DayGroup[] {
+function groupByDay(
+  versions: VersionHistoryEntry[],
+  local: boolean,
+): DayGroup[] {
   const groups: DayGroup[] = [];
   for (const version of versions) {
-    const key = dayKey(version.createdAt);
+    const key = dayKey(version.createdAt, local);
     const last = groups[groups.length - 1];
     if (last?.key === key) {
       last.versions.push(version);
     } else {
       groups.push({
         key,
-        label: dayLabel(version.createdAt),
+        label: dayLabel(version.createdAt, local),
         versions: [version],
       });
     }
@@ -105,10 +139,11 @@ function VersionTimeline({
 }) {
   const router = useRouter();
   const [deletingVersion, setDeletingVersion] = useState<number | null>(null);
+  const hydrated = useIsHydrated();
 
   // Newest first so the latest version sits at the top of the panel.
   const timeline = [...versions].toReversed();
-  const dayGroups = groupByDay(timeline);
+  const dayGroups = groupByDay(timeline, hydrated);
 
   if (timeline.length === 0) {
     return <p className="px-4 py-8 text-sm text-muted">No versions yet.</p>;
@@ -240,7 +275,7 @@ function VersionTimeline({
                               dateTime={version.createdAt}
                               className="shrink-0 text-sm text-muted"
                             >
-                              {versionTimeLabel(version.createdAt)}
+                              {versionTimeLabel(version.createdAt, hydrated)}
                             </time>
                           </div>
                         </div>
@@ -278,7 +313,7 @@ function VersionTimeline({
                               dateTime={version.createdAt}
                               className="shrink-0 text-sm text-muted"
                             >
-                              {versionTimeLabel(version.createdAt)}
+                              {versionTimeLabel(version.createdAt, hydrated)}
                             </time>
                           </div>
                         </button>
